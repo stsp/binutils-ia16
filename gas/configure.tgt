@@ -266,6 +266,8 @@ case ${generic_target} in
 
   ia16-*-elf*)				fmt=elf ;;
 
+  ia16-*-elf*)				fmt=elf ;;
+
   ia64-*-elf*)				fmt=elf ;;
   ia64-*-*vms*)				fmt=elf em=vms ;;
   ia64-*-aix*)				fmt=elf em=ia64aix ;;
