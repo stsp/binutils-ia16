@@ -26,6 +26,10 @@
 /* 386 uses REL relocations instead of RELA.  */
 #define USE_REL	1
 
+static bfd_reloc_status_type
+bfd_i386_elf_relseg16_reloc (bfd *, arelent *, asymbol *, void *, asection *,
+			     bfd *, char **);
+
 static reloc_howto_type elf_howto_table[]=
 {
   HOWTO(R_386_NONE, 0, 0, 0, false, 0, complain_overflow_dont,
@@ -160,6 +164,15 @@ static reloc_howto_type elf_howto_table[]=
 
   /* Another gap.  */
 #define R_386_ext3 (R_386_SEGRELATIVE + 1 - R_386_seg16_offset)
+#define R_386_ia16_offset (R_386_RELSEG16 - R_386_ext3)
+
+  /* IA16.  */
+  HOWTO(R_386_RELSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
+	bfd_i386_elf_relseg16_reloc, "R_386_RELSEG16",
+	true, 0xffff, 0xffff, false),
+
+  /* Yet another gap.  */
+#define R_386_ext4 (R_386_RELSEG16 + 1 - R_386_ia16_offset)
 #define R_386_vt_offset (R_386_GNU_VTINHERIT - R_386_ext3)
 
 /* GNU extension to record C++ vtable hierarchy.  */
@@ -195,6 +208,77 @@ static reloc_howto_type elf_howto_table[]=
 #define R_386_vt (R_386_GNU_VTENTRY + 1 - R_386_vt_offset)
 
 };
+
+/* This function, and bfd_i386_elf_relseg16_reloc (...), are intended to
+   support MS-DOS MZ relocations for the 16-bit Intel 8086 (ia16-elf).
+
+   In the newlib-ia16 linker script, IA-16 segments are represented as
+   64-KiB address spaces with overlapping VMAs but distinct LMAs.  So, to
+   compute the paragraph distance of a section's segment (from the program's
+   base), we can subtract the section's VMA from its LMA.
+
+   If the MZ header has its own section, also subtract the LMA for the end
+   of the header.  -- tkchia  */
+static bool
+bfd_i386_elf_get_paragraph_distance (asection *input_section,
+				     bfd_vma *distance)
+{
+  asection *output_section = input_section->output_section;
+  bfd *output_bfd = output_section->owner;
+  bfd_vma dist = output_section->lma - output_section->vma;
+
+  asection *hdr_sec = bfd_get_section_by_name (output_bfd, ".msdos_mz_hdr");
+
+  if (dist % 16 != 0)
+    {
+      /* xgettext:c-format */
+      _bfd_error_handler (_("%pB: R_386_RELSEG16 with unaligned section `%pA'"),
+			  output_bfd, output_section);
+      return false;
+    }
+
+  if (! hdr_sec)
+    {
+      *distance = dist / 16;
+      return true;
+    }
+
+  if (hdr_sec->lma % 16 != 0 || hdr_sec->size % 16 != 0)
+    {
+      /* xgettext:c-format */
+      _bfd_error_handler (_("%pB: R_386_RELSEG16 with unaligned MZ header"),
+			  output_bfd);
+      return false;
+    }
+
+  dist -= hdr_sec->lma + hdr_sec->size;
+  *distance = dist / 16;
+  return true;
+}
+
+static bfd_reloc_status_type
+bfd_i386_elf_relseg16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
+			     void *data ATTRIBUTE_UNUSED,
+			     asection *input_section, bfd *output_bfd,
+			     char **error_message ATTRIBUTE_UNUSED)
+{
+  bfd_vma paras;
+
+  if (output_bfd)
+    {
+      reloc_entry->address += input_section->output_offset;
+      return bfd_reloc_ok;
+    }
+
+  if (reloc_entry->address > bfd_get_section_limit (abfd, input_section))
+    return bfd_reloc_outofrange;
+
+  if (! bfd_i386_elf_get_paragraph_distance (symbol->section, &paras))
+    return bfd_reloc_other;
+
+  return _bfd_relocate_contents (&elf_howto_table[R_386_16 - R_386_ext_offset],
+    abfd, paras, (bfd_byte *) data + reloc_entry->address);
+}
 
 #ifdef DEBUG_GEN_RELOC
 #define TRACE(str) \
@@ -363,6 +447,10 @@ elf_i386_reloc_type_lookup (bfd *abfd,
       TRACE ("BFD_RELOC_386_SEGRELATIVE");
       return &elf_howto_table[R_386_SEGRELATIVE];
 
+    case BFD_RELOC_386_RELSEG16:
+      TRACE ("BFD_RELOC_386_RELSEG16");
+      return &elf_howto_table[R_386_RELSEG16 - R_386_ia16_offset];
+
     case BFD_RELOC_VTABLE_INHERIT:
       TRACE ("BFD_RELOC_VTABLE_INHERIT");
       return &elf_howto_table[R_386_GNU_VTINHERIT - R_386_vt_offset];
@@ -407,8 +495,10 @@ elf_i386_rtype_to_howto (unsigned r_type)
 	  >= R_386_ext2 - R_386_ext)
       && ((indx = r_type - R_386_seg16_offset ) - R_386_ext2
 	  >= R_386_ext3 - R_386_ext2)
-      && ((indx = r_type - R_386_vt_offset) - R_386_ext3
-	  >= R_386_vt - R_386_ext3))
+      && ((indx = r_type - R_386_ia16_offset) - R_386_ext3
+	  >= R_386_ext4 - R_386_ext3)
+      && ((indx = r_type - R_386_vt_offset) - R_386_ext4
+	  >= R_386_vt - R_386_ext4))
       return NULL;
   /* PR 17512: file: 0f67f69d.  */
   if (elf_howto_table [indx].type != r_type)
@@ -2796,6 +2886,15 @@ elf_i386_relocate_section (bfd *output_bfd,
 	  relocation = (resolved_plt->output_section->vma
 			+ resolved_plt->output_offset
 			+ plt_offset);
+	  unresolved_reloc = false;
+	  break;
+
+	case R_386_RELSEG16:
+	  if (! bfd_i386_elf_get_paragraph_distance (sec, &relocation))
+	    {
+	      bfd_set_error (bfd_error_bad_value);
+	      return false;
+	    }
 	  unresolved_reloc = false;
 	  break;
 
