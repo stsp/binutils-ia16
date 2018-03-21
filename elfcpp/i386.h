@@ -88,7 +88,8 @@ enum
   R_386_IRELATIVE = 42,     // Adjust indirectly by program base
   R_386_GOT32X = 43,        // 32 bit GOT entry, relaxable
   // IA16 extension.
-  R_386_SEGMENT = 80,       // High 16 bits, adds to exe relocation table
+  R_386_SEGMENT16 = 80,     // High 16 bits, adds to exe relocation table
+  R_386_RELSEG16 = 81,      // High 16 bits, do not add to exe relocation table
   // Used by Intel.
   R_386_USED_BY_INTEL_200 = 200,
   // GNU vtable garbage collection extensions.
