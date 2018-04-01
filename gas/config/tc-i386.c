@@ -10287,6 +10287,9 @@ lex_got (enum bfd_reloc_code_real *rel,
     { STRING_COMMA_LEN ("SEG"),      { BFD_RELOC_386_SEG16,
 				       0 /* not supported */ },
       2, OPERAND_TYPE_IMM16, false },
+    { STRING_COMMA_LEN ("SEGMENT16"),{ BFD_RELOC_386_SEGMENT16,
+				       _dummy_first_bfd_reloc_code_real },
+      2, OPERAND_TYPE_NONE, false },
     { STRING_COMMA_LEN ("RELSEG16"), { BFD_RELOC_386_RELSEG16,
 				       _dummy_first_bfd_reloc_code_real },
       2, OPERAND_TYPE_NONE, false },
@@ -14514,6 +14517,7 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
     case BFD_RELOC_386_SEG16:
     case BFD_RELOC_386_SUB16:
     case BFD_RELOC_386_SUB32:
+    case BFD_RELOC_386_SEGMENT16:
     case BFD_RELOC_386_RELSEG16:
     case BFD_RELOC_X86_64_TLSGD:
     case BFD_RELOC_X86_64_TLSLD:

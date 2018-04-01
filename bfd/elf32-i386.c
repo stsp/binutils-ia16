@@ -26,9 +26,14 @@
 /* 386 uses REL relocations instead of RELA.  */
 #define USE_REL	1
 
-static bfd_reloc_status_type
-bfd_i386_elf_relseg16_reloc (bfd *, arelent *, asymbol *, void *, asection *,
-			     bfd *, char **);
+static bfd_reloc_status_type bfd_i386_elf_segment16_reloc (bfd *, arelent *,
+							   asymbol *, void *,
+							   asection *, bfd *,
+							   char **);
+static bfd_reloc_status_type bfd_i386_elf_relseg16_reloc (bfd *, arelent *,
+							  asymbol *, void *,
+							  asection *, bfd *,
+							  char **);
 
 static reloc_howto_type elf_howto_table[]=
 {
@@ -164,9 +169,12 @@ static reloc_howto_type elf_howto_table[]=
 
   /* Another gap.  */
 #define R_386_ext3 (R_386_SEGRELATIVE + 1 - R_386_seg16_offset)
-#define R_386_ia16_offset (R_386_RELSEG16 - R_386_ext3)
+#define R_386_ia16_offset (R_386_SEGMENT16 - R_386_ext2)
 
   /* IA16.  */
+  HOWTO(R_386_SEGMENT16, 0, 1, 16, false, 0, complain_overflow_dont,
+	bfd_i386_elf_segment16_reloc, "R_386_SEGMENT16",
+	true, 0xffff, 0xffff, false),
   HOWTO(R_386_RELSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
 	bfd_i386_elf_relseg16_reloc, "R_386_RELSEG16",
 	true, 0xffff, 0xffff, false),
@@ -209,8 +217,9 @@ static reloc_howto_type elf_howto_table[]=
 
 };
 
-/* This function, and bfd_i386_elf_relseg16_reloc (...), are intended to
-   support MS-DOS MZ relocations for the 16-bit Intel 8086 (ia16-elf).
+/* This function, bfd_i386_elf_segment16_reloc (...), and bfd_i386_elf_
+   relseg16_reloc (...), are intended to support MS-DOS MZ relocations for
+   the 16-bit Intel 8086 (ia16-elf).
 
    In the newlib-ia16 linker script, IA-16 segments are represented as
    64-KiB address spaces with overlapping VMAs but distinct LMAs.  So, to
@@ -256,6 +265,119 @@ bfd_i386_elf_get_paragraph_distance (asection *input_section,
   return true;
 }
 
+/* Try to "install" an R_386_SEGMENT16 relocation.  This routine actually
+   installs two R_386_RELSEG16 relocations --- one in the actual place to be
+   relocated, and another in .msdos_mz_reloc.* --- plus a good old R_386_16
+   relocation in .msdos_mz_reloc.*.  Thus, an R_386_SEGMENT16 will never
+   actually appear in a .o file.
+
+   If we are asked to actually _perform_ an R_386_SEGMENT16 relocation, then
+   bail out.
+
+   TODO: allow R_386_SEGMENT16 relocation to appear in input .o files, and
+   handle them.  -- tkchia  */
+static bfd_reloc_status_type
+bfd_i386_elf_segment16_reloc (bfd *abfd, arelent *reloc_entry,
+			      asymbol *symbol ATTRIBUTE_UNUSED,
+			      void *data ATTRIBUTE_UNUSED,
+			      asection *input_section, bfd *output_bfd,
+			      char **error_message ATTRIBUTE_UNUSED)
+{
+  static int count = 0;
+  char *mz_section_name, *error;
+  asection *mz_section;
+  bfd_byte *contents;
+  bfd_vma sec_off;
+  arelent *p_rel0, *p_rel1, **pp_rel;
+
+  if (! output_bfd)
+    {
+      _bfd_error_handler
+	/* xgettext:c-format */
+	(_("%pB: stray R_386_SEGMENT16 relocation in section `%pA'"),
+	 abfd, input_section);
+      return bfd_reloc_other;
+    }
+
+  if (reloc_entry->address > bfd_get_section_limit (abfd, input_section))
+    return bfd_reloc_outofrange;
+
+  mz_section_name = bfd_get_unique_section_name (output_bfd, ".msdos_mz_reloc",
+						 &count);
+  if (mz_section_name)
+    mz_section = bfd_make_section_with_flags (output_bfd, mz_section_name,
+					      SEC_ALLOC | SEC_LOAD | SEC_RELOC
+					      | SEC_DATA | SEC_HAS_CONTENTS
+					      | SEC_KEEP);
+  if (! mz_section_name || ! mz_section
+      || ! bfd_set_section_size (mz_section, 4))
+    {
+      /* xgettext:c-format */
+      _bfd_error_handler (_("%pB: cannot create new MZ relocation section"),
+			  output_bfd);
+      return bfd_reloc_other;
+    }
+
+  sec_off = reloc_entry->address + input_section->output_offset;
+  contents = bfd_alloc (output_bfd, 4 * sizeof (bfd_byte));
+  if (! contents)
+    {
+      /* xgettext:c-format */
+      _bfd_error_handler (_("%pB: no memory for new MZ relocation"),
+			  output_bfd);
+      return bfd_reloc_other;
+    }
+
+  mz_section->contents = (void *) contents;
+  mz_section->flags |= SEC_IN_MEMORY;
+  mz_section->use_rela_p = 1;
+  bfd_put_16 (output_bfd, (bfd_vma) 0, contents);
+  bfd_put_16 (output_bfd, (bfd_vma) 0, contents + 2);
+
+  p_rel0 = bfd_alloc (output_bfd, sizeof (arelent));
+  p_rel1 = bfd_alloc (output_bfd, sizeof (arelent));
+  pp_rel = bfd_alloc (output_bfd, 2 * sizeof (arelent *));
+  if (! p_rel0 || ! p_rel1 || ! pp_rel)
+    {
+      _bfd_error_handler
+	/* xgettext:c-format */
+	(_("%pB: no memory for R_386_RELSEG16 or R_386_16 relocation for MZ"),
+	 output_bfd);
+      return bfd_reloc_other;
+    }
+
+  *p_rel0 = *p_rel1 = *reloc_entry;
+  p_rel0->address = 0;
+  p_rel0->sym_ptr_ptr = input_section->output_section->symbol_ptr_ptr;
+  p_rel0->addend = sec_off;
+  p_rel0->howto = &elf_howto_table[R_386_16 - R_386_ext_offset];
+  p_rel1->address = 2;
+  p_rel1->sym_ptr_ptr = input_section->output_section->symbol_ptr_ptr;
+  p_rel1->addend = 0;
+  p_rel1->howto = &elf_howto_table[R_386_RELSEG16 - R_386_ia16_offset];
+  if (bfd_install_relocation (output_bfd, p_rel0, contents, 0, mz_section,
+			      &error) != bfd_reloc_ok
+      || bfd_install_relocation (output_bfd, p_rel1, contents, 0, mz_section,
+				 &error) != bfd_reloc_ok)
+    {
+      _bfd_error_handler
+	/* xgettext:c-format */
+	(_("%pB: cannot install R_386_RELSEG16 or R_386_16 relocation for MZ"),
+	 output_bfd);
+      return bfd_reloc_other;
+    }
+
+  pp_rel[0] = p_rel0;
+  pp_rel[1] = p_rel1;
+  bfd_set_reloc (output_bfd, mz_section, pp_rel, 2);
+
+  reloc_entry->address = sec_off;
+  reloc_entry->howto = &elf_howto_table[R_386_RELSEG16 - R_386_ia16_offset];
+
+  return bfd_reloc_ok;
+}
+
+/* Either install or perform an R_386_RELSEG16 relocation.  */
 static bfd_reloc_status_type
 bfd_i386_elf_relseg16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
 			     void *data ATTRIBUTE_UNUSED,
@@ -445,7 +567,11 @@ elf_i386_reloc_type_lookup (bfd *abfd,
 
     case BFD_RELOC_386_SEGRELATIVE:
       TRACE ("BFD_RELOC_386_SEGRELATIVE");
-      return &elf_howto_table[R_386_SEGRELATIVE];
+      return &elf_howto_table[R_386_SEGRELATIVE - R_386_seg16_offset];
+
+    case BFD_RELOC_386_SEGMENT16:
+      TRACE ("BFD_RELOC_386_SEGMENT16");
+      return &elf_howto_table[R_386_SEGMENT16 - R_386_ia16_offset];
 
     case BFD_RELOC_386_RELSEG16:
       TRACE ("BFD_RELOC_386_RELSEG16");
@@ -2888,6 +3014,14 @@ elf_i386_relocate_section (bfd *output_bfd,
 			+ plt_offset);
 	  unresolved_reloc = false;
 	  break;
+
+	case R_386_SEGMENT16:
+	  _bfd_error_handler
+	    /* xgettext:c-format */
+	    (_("%pB: stray R_386_SEGMENT16 relocation in section `%pA'"),
+	     input_bfd, input_section);
+	  bfd_set_error (bfd_error_bad_value);
+	  return false;
 
 	case R_386_RELSEG16:
 	  if (! bfd_i386_elf_get_paragraph_distance (sec, &relocation))
