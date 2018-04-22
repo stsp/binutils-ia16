@@ -847,7 +847,15 @@ print_symbol (signed int width, const char * symbol)
 	  /* Try to find out how many bytes made up the character that was
 	     just printed.  Advance the symbol pointer past the bytes that
 	     were displayed.  */
+# ifndef __DJGPP__
 	  n = mbrtowc (& w, symbol - 1, MB_CUR_MAX, & state);
+# else
+	  /* For some reason, Andrew Wu's DJGPP cross compiler binaries
+	     (https://github.com/andrewwutw/build-djgpp/) come with headers
+	     that include mbstate_t but no mbrtowc (...).  For now, work
+	     around this by using mbtowc (...) instead.  -- tkchia */
+	  n = mbtowc (& w, symbol - 1, MB_CUR_MAX);
+# endif
 #else
 	  n = 1;
 #endif

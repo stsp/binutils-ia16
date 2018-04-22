@@ -10633,9 +10633,10 @@ display_gdb_index (struct dwarf_section *section,
 	  /* PR 17531: file: 5b7b07ad.  */
 	  if (name_offset >= section->size - constant_pool_offset)
 	    {
-	      printf (_("[%3u] <corrupt offset: %x>"), i, name_offset);
-	      warn (_("Corrupt name offset of 0x%x found for symbol table slot %d\n"),
-		    name_offset, i);
+	      printf (_("[%3u] <corrupt offset: %lx>"), i,
+		      (unsigned long) name_offset);
+	      warn (_("Corrupt name offset of 0x%lx found for symbol table slot %d\n"),
+		    (unsigned long) name_offset, i);
 	    }
 	  else
 	    printf ("[%3u] %.*s:", i,
@@ -10645,9 +10646,10 @@ display_gdb_index (struct dwarf_section *section,
 	  if (section->size - constant_pool_offset < 4
 	      || cu_vector_offset > section->size - constant_pool_offset - 4)
 	    {
-	      printf (_("<invalid CU vector offset: %x>\n"), cu_vector_offset);
-	      warn (_("Corrupt CU vector offset of 0x%x found for symbol table slot %d\n"),
-		    cu_vector_offset, i);
+	      printf (_("<invalid CU vector offset: %lx>\n"),
+		      (unsigned long) cu_vector_offset);
+	      warn (_("Corrupt CU vector offset of 0x%lx found for symbol table slot %d\n"),
+		    (unsigned long) cu_vector_offset, i);
 	      continue;
 	    }
 
@@ -10656,9 +10658,10 @@ display_gdb_index (struct dwarf_section *section,
 	  if ((uint64_t) num_cus * 4 > section->size - (constant_pool_offset
 							+ cu_vector_offset + 4))
 	    {
-	      printf ("<invalid number of CUs: %d>\n", num_cus);
-	      warn (_("Invalid number of CUs (0x%x) for symbol table slot %d\n"),
-		    num_cus, i);
+	      printf ("<invalid number of CUs: %lu>\n",
+		      (unsigned long) num_cus);
+	      warn (_("Invalid number of CUs (0x%lx) for symbol table slot %d\n"),
+		    (unsigned long) num_cus, i);
 	      continue;
 	    }
 
