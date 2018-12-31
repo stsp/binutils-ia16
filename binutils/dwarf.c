@@ -10134,7 +10134,7 @@ display_debug_names (struct dwarf_section *section, void *file)
 	{
 	  warn (_("Augmentation string length %u must be rounded up "
 		  "to a multiple of 4 in .debug_names.\n"),
-		augmentation_string_size);
+		(unsigned) augmentation_string_size);
 	  augmentation_string_size += (-augmentation_string_size) & 3;
 	}
       if (augmentation_string_size > (size_t) (unit_end - hdrptr))
@@ -10348,7 +10348,8 @@ display_debug_names (struct dwarf_section *section, void *file)
 	  p = name_table_entry_offsets + namei * offset_size;
 	  SAFE_BYTE_GET (entry_offset, p, offset_size, unit_end);
 
-	  printf ("[%3u] #%08x %s:", namei, hash_table_hashes[namei],
+	  printf ("[%3u] #%08x %s:", (unsigned) namei,
+		  (unsigned) hash_table_hashes[namei],
 		  fetch_indirect_string (string_offset));
 
 	  unsigned char *entryptr = entry_pool + entry_offset;

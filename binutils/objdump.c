@@ -1890,7 +1890,7 @@ update_source_path (const char *filename, bfd *abfd)
     {
       long mtime = bfd_get_mtime (abfd);
 
-      if (fst.st_mtime > mtime)
+      if ((long) fst.st_mtime > mtime)
 	warn (_("source file %s is more recent than object file\n"),
 	      filename);
     }
