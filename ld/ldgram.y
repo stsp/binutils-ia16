@@ -50,7 +50,7 @@ static enum section_type sectype;
 static etree_type *sectype_value;
 static lang_memory_region_type *region;
 
-static bool ldgram_had_keep = false;
+static bool ldgram_had_keep = false, ldgram_input_cond = true;
 static char *ldgram_vers_current_lang = NULL;
 
 #define ERROR_NAME_MAX 20
@@ -370,23 +370,26 @@ input_list:
 
 input_list1:
 		NAME
-		{ lang_add_input_file($1,lang_input_file_is_search_file_enum,
-				 (char *)NULL); }
+		{ lang_cond_add_input_file($1,
+					   lang_input_file_is_search_file_enum,
+					   (char *)NULL, ldgram_input_cond); }
 	|	input_list1 ',' NAME
-		{ lang_add_input_file($3,lang_input_file_is_search_file_enum,
-				 (char *)NULL); }
+		{ lang_cond_add_input_file($3,
+					   lang_input_file_is_search_file_enum,
+					   (char *)NULL, ldgram_input_cond); }
 	|	input_list1 NAME
-		{ lang_add_input_file($2,lang_input_file_is_search_file_enum,
-				 (char *)NULL); }
+		{ lang_cond_add_input_file($2,
+					   lang_input_file_is_search_file_enum,
+					   (char *)NULL, ldgram_input_cond); }
 	|	LNAME
-		{ lang_add_input_file($1,lang_input_file_is_l_enum,
-				 (char *)NULL); }
+		{ lang_cond_add_input_file($1,lang_input_file_is_l_enum,
+					   (char *)NULL, ldgram_input_cond); }
 	|	input_list1 ',' LNAME
-		{ lang_add_input_file($3,lang_input_file_is_l_enum,
-				 (char *)NULL); }
+		{ lang_cond_add_input_file($3,lang_input_file_is_l_enum,
+					   (char *)NULL, ldgram_input_cond); }
 	|	input_list1 LNAME
-		{ lang_add_input_file($2,lang_input_file_is_l_enum,
-				 (char *)NULL); }
+		{ lang_cond_add_input_file($2,lang_input_file_is_l_enum,
+					   (char *)NULL, ldgram_input_cond); }
 	|	AS_NEEDED '('
 		  { $<integer>$ = input_flags.add_DT_NEEDED_for_regular;
 		    input_flags.add_DT_NEEDED_for_regular = true; }
@@ -402,6 +405,28 @@ input_list1:
 		    input_flags.add_DT_NEEDED_for_regular = true; }
 		     input_list1 ')'
 		  { input_flags.add_DT_NEEDED_for_regular = $<integer>4; }
+	/* tkchia 201903 */
+	|	cond_input_list
+	|	input_list1 ',' cond_input_list
+	|	input_list1 cond_input_list
+	;
+
+	/* tkchia 201903 */
+cond_input_list:
+		'(' mustbe_exp ':'
+		  { $<integer>$ = ldgram_input_cond;
+		    if (ldgram_input_cond)
+		      {
+			exp_fold_tree_no_dot ($2);
+			if (! expld.result.valid_p)
+			  einfo (_("\
+%X%P:%pS: cannot evaluate condition for INPUT\n"), NULL);
+			else
+			  ldgram_input_cond = !! expld.result.value;
+		      }
+		  }
+		input_list1 ')'
+		  { ldgram_input_cond = $<integer>4; }
 	;
 
 sections:

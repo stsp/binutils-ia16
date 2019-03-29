@@ -1210,6 +1210,17 @@ lang_add_input_file (const char *name,
   return new_afile (name, file_type, target, current_input_file);
 }
 
+lang_input_statement_type *
+lang_cond_add_input_file (const char *name,
+			  lang_input_file_enum_type file_type,
+			  const char *target, bool condition)
+{
+  if (condition)
+    return lang_add_input_file (name, file_type, target);
+  else
+    return NULL;
+}
+
 struct out_section_hash_entry
 {
   struct bfd_hash_entry root;

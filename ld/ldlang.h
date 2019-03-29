@@ -612,6 +612,8 @@ extern lang_output_section_statement_type *lang_insert_orphan
    struct orphan_save *, etree_type *, lang_statement_list_type *);
 extern lang_input_statement_type *lang_add_input_file
   (const char *, lang_input_file_enum_type, const char *);
+extern lang_input_statement_type *lang_cond_add_input_file
+  (const char *, lang_input_file_enum_type, const char *, bool);
 extern void lang_add_keepsyms_file
   (const char *);
 extern lang_output_section_statement_type *lang_output_section_get
