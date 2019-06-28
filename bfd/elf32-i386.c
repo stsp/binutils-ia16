@@ -266,17 +266,13 @@ bfd_i386_elf_get_paragraph_distance (asection *input_section,
   return true;
 }
 
-/* Try to "install" an R_386_SEGMENT16 relocation.  This routine actually
-   installs two R_386_RELSEG16 relocations --- one in the actual place to be
-   relocated, and another in .msdos_mz_reloc.* --- plus a good old R_386_16
-   relocation in .msdos_mz_reloc.*.  Thus, an R_386_SEGMENT16 will never
-   actually appear in a .o file.
+/* Either install or perform an R_386_SEGMENT16 relocation.
 
-   If we are asked to actually _perform_ an R_386_SEGMENT16 relocation, then
-   bail out.
-
-   TODO: allow R_386_SEGMENT16 relocation to appear in input .o files, and
-   handle them.  -- tkchia  */
+   This function simply treats R_386_SEGMENT16 relocations as if they are
+   R_386_RELSEG16 relocations.  It is assumed that the elf_i386_msdos_mz
+   linker emulation code (e.g.) has created the MZ relocation entry (e.g.)
+   needed to properly implement R_386_SEGMENT16.  This is a bit of a hack.
+								-- tkchia  */
 static bfd_reloc_status_type
 bfd_i386_elf_segment16_reloc (bfd *abfd, arelent *reloc_entry,
 			      asymbol *symbol ATTRIBUTE_UNUSED,
@@ -284,98 +280,9 @@ bfd_i386_elf_segment16_reloc (bfd *abfd, arelent *reloc_entry,
 			      asection *input_section, bfd *output_bfd,
 			      char **error_message ATTRIBUTE_UNUSED)
 {
-  static int count = 0;
-  char *mz_section_name, *error;
-  asection *mz_section;
-  bfd_byte *contents;
-  bfd_vma sec_off;
-  arelent *p_rel0, *p_rel1, **pp_rel;
-
-  if (! output_bfd)
-    {
-      _bfd_error_handler
-	/* xgettext:c-format */
-	(_("%pB: stray R_386_SEGMENT16 relocation in section `%pA'"),
-	 abfd, input_section);
-      return bfd_reloc_other;
-    }
-
-  if (reloc_entry->address > bfd_get_section_limit (abfd, input_section))
-    return bfd_reloc_outofrange;
-
-  mz_section_name = bfd_get_unique_section_name (output_bfd, ".msdos_mz_reloc",
-						 &count);
-  if (mz_section_name)
-    mz_section = bfd_make_section_with_flags (output_bfd, mz_section_name,
-					      SEC_ALLOC | SEC_LOAD | SEC_RELOC
-					      | SEC_DATA | SEC_HAS_CONTENTS
-					      | SEC_KEEP);
-  if (! mz_section_name || ! mz_section
-      || ! bfd_set_section_size (mz_section, 4))
-    {
-      /* xgettext:c-format */
-      _bfd_error_handler (_("%pB: cannot create new MZ relocation section"),
-			  output_bfd);
-      return bfd_reloc_other;
-    }
-
-  sec_off = reloc_entry->address + input_section->output_offset;
-  contents = bfd_alloc (output_bfd, 4 * sizeof (bfd_byte));
-  if (! contents)
-    {
-      /* xgettext:c-format */
-      _bfd_error_handler (_("%pB: no memory for new MZ relocation"),
-			  output_bfd);
-      return bfd_reloc_other;
-    }
-
-  mz_section->contents = (void *) contents;
-  mz_section->flags |= SEC_IN_MEMORY;
-  mz_section->use_rela_p = 1;
-  bfd_put_16 (output_bfd, (bfd_vma) 0, contents);
-  bfd_put_16 (output_bfd, (bfd_vma) 0, contents + 2);
-
-  p_rel0 = bfd_alloc (output_bfd, sizeof (arelent));
-  p_rel1 = bfd_alloc (output_bfd, sizeof (arelent));
-  pp_rel = bfd_alloc (output_bfd, 2 * sizeof (arelent *));
-  if (! p_rel0 || ! p_rel1 || ! pp_rel)
-    {
-      _bfd_error_handler
-	/* xgettext:c-format */
-	(_("%pB: no memory for R_386_RELSEG16 or R_386_16 relocation for MZ"),
-	 output_bfd);
-      return bfd_reloc_other;
-    }
-
-  *p_rel0 = *p_rel1 = *reloc_entry;
-  p_rel0->address = 0;
-  p_rel0->sym_ptr_ptr = input_section->output_section->symbol_ptr_ptr;
-  p_rel0->addend = sec_off;
-  p_rel0->howto = &elf_howto_table[R_386_16 - R_386_ext_offset];
-  p_rel1->address = 2;
-  p_rel1->sym_ptr_ptr = input_section->output_section->symbol_ptr_ptr;
-  p_rel1->addend = 0;
-  p_rel1->howto = &elf_howto_table[R_386_RELSEG16 - R_386_ia16_offset];
-  if (bfd_install_relocation (output_bfd, p_rel0, contents, 0, mz_section,
-			      &error) != bfd_reloc_ok
-      || bfd_install_relocation (output_bfd, p_rel1, contents, 0, mz_section,
-				 &error) != bfd_reloc_ok)
-    {
-      _bfd_error_handler
-	/* xgettext:c-format */
-	(_("%pB: cannot install R_386_RELSEG16 or R_386_16 relocation for MZ"),
-	 output_bfd);
-      return bfd_reloc_other;
-    }
-
-  pp_rel[0] = p_rel0;
-  pp_rel[1] = p_rel1;
-  bfd_set_reloc (output_bfd, mz_section, pp_rel, 2);
-
-  reloc_entry->address = sec_off;
-  reloc_entry->howto = &elf_howto_table[R_386_RELSEG16 - R_386_ia16_offset];
-
-  return bfd_reloc_ok;
+  return bfd_i386_elf_relseg16_reloc (abfd, reloc_entry, symbol, data,
+				      input_section, output_bfd,
+				      error_message);
 }
 
 /* Either install or perform an R_386_RELSEG16 relocation.  */
