@@ -232,18 +232,29 @@ static bool
 bfd_i386_elf_get_paragraph_distance (asection *input_section,
 				     bfd_vma *distance)
 {
-  asection *output_section = input_section->output_section;
-  bfd *output_bfd = output_section->owner;
-  bfd_vma lma = output_section->lma, vma = output_section->vma;
-  bfd_vma dist = lma / 16 - vma / 16;
+  asection *output_section = input_section->output_section, *hdr_sec;
+  bfd *output_bfd;
+  bfd_vma lma, vma, dist;
 
-  asection *hdr_sec = bfd_get_section_by_name (output_bfd, ".msdos_mz_hdr");
+  if (bfd_is_const_section (input_section) || ! output_section)
+    {
+      /* xgettext:c-format */
+      _bfd_error_handler (_("R_386_SEGMENT16 or R_386_RELSEG16 for \
+symbol with no output section"));
+      return FALSE;
+    }
+
+  output_bfd = output_section->owner;
+  lma = output_section->lma;
+  vma = output_section->vma;
+  dist = lma / 16 - vma / 16;
+  hdr_sec = bfd_get_section_by_name (output_bfd, ".msdos_mz_hdr");
 
   if (lma % 16 != vma % 16)
     {
       /* xgettext:c-format */
-      _bfd_error_handler (_("%pB: R_386_RELSEG16 with unaligned section `%pA'"),
-			  output_bfd, output_section);
+      _bfd_error_handler (_("%pB: R_386_SEGMENT16 or R_386_RELSEG16 with \
+unaligned section `%pA'"), output_bfd, output_section);
       return false;
     }
 
@@ -256,8 +267,8 @@ bfd_i386_elf_get_paragraph_distance (asection *input_section,
   if (hdr_sec->lma % 16 != 0 || hdr_sec->size % 16 != 0)
     {
       /* xgettext:c-format */
-      _bfd_error_handler (_("%pB: R_386_RELSEG16 with unaligned MZ header"),
-			  output_bfd);
+      _bfd_error_handler (_("%pB: R_386_SEGMENT16 or R_386_RELSEG16 with \
+unaligned MZ header"), output_bfd);
       return false;
     }
 
