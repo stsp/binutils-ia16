@@ -145,18 +145,21 @@ static reloc_howto_type elf_howto_table[]=
 #define R_386_ext2 (R_386_GOT32X + 1 - R_386_tls_offset)
 #define R_386_seg16_offset (R_386_SEG16 - R_386_ext2)
 
-  HOWTO(R_386_SEG16, 4, 1, 16, FALSE, 0, complain_overflow_unsigned,
+  HOWTO(R_386_SEG16, 4, 1, 16, false, 0, complain_overflow_unsigned,
 	bfd_elf_generic_reloc, "R_386_SEG16",
-	TRUE, 0xffff, 0xffff, FALSE),
-  HOWTO(R_386_SUB16, 0, 1, 16, FALSE, 0, complain_overflow_bitfield,
+	true, 0xffff, 0xffff, false),
+  HOWTO(R_386_SUB16, 0, 1, 16, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SUB16",
-	TRUE, 0xffff, 0xffff, FALSE),
-  HOWTO(R_386_SUB32, 0, 2, 32, FALSE, 0, complain_overflow_bitfield,
+	true, 0xffff, 0xffff, false),
+  HOWTO(R_386_SUB32, 0, 2, 32, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SUB32",
-	TRUE, 0xffffffff, 0xffffffff, FALSE),
+	true, 0xffffffff, 0xffffffff, false),
+  HOWTO(R_386_SEGRELATIVE, 4, 1, 16, false, 0, complain_overflow_bitfield,
+	bfd_elf_generic_reloc, "R_386_SEGRELATIVE",
+	true, 0xffff, 0xffff, false),
 
   /* Another gap.  */
-#define R_386_ext3 (R_386_SUB32 + 1 - R_386_seg16_offset)
+#define R_386_ext3 (R_386_SEGRELATIVE + 1 - R_386_seg16_offset)
 #define R_386_vt_offset (R_386_GNU_VTINHERIT - R_386_ext3)
 
 /* GNU extension to record C++ vtable hierarchy.  */
@@ -355,6 +358,10 @@ elf_i386_reloc_type_lookup (bfd *abfd,
     case BFD_RELOC_386_SUB32:
       TRACE ("BFD_RELOC_386_SUB32");
       return &elf_howto_table[R_386_SUB32 - R_386_seg16_offset];
+
+    case BFD_RELOC_386_SEGRELATIVE:
+      TRACE ("BFD_RELOC_386_SEGRELATIVE");
+      return &elf_howto_table[R_386_SEGRELATIVE];
 
     case BFD_RELOC_VTABLE_INHERIT:
       TRACE ("BFD_RELOC_VTABLE_INHERIT");
@@ -1768,6 +1775,7 @@ elf_i386_scan_relocs (bfd *abfd,
 
 	case R_386_32:
 	case R_386_PC32:
+	case R_386_SEG16:
 	  if (eh != NULL && (sec->flags & SEC_CODE) != 0)
 	    eh->zero_undefweak |= 0x2;
 	do_relocation:
@@ -1909,7 +1917,7 @@ elf_i386_scan_relocs (bfd *abfd,
 
 	      p->count += 1;
 	      /* Count size relocation as PC-relative relocation.  */
-	      if (r_type == R_386_PC32 || size_reloc)
+	      if (r_type == R_386_PC32 || r_type == R_386_SEG16 || size_reloc)
 		p->pc_count += 1;
 	    }
 	  break;
@@ -1928,7 +1936,6 @@ elf_i386_scan_relocs (bfd *abfd,
 	    goto error_return;
 	  break;
 
-	case R_386_SEG16:
 	case R_386_SUB16:
 	case R_386_SUB32:
 	  if (bfd_link_dll (info))
@@ -1943,7 +1950,7 @@ elf_i386_scan_relocs (bfd *abfd,
 		(_("%F%P: %pB: unsupported relocation %s against symbol "
 		   "`%s' for shared object\n"),
 		 abfd, howto->name, name);
-	      return FALSE;
+	      return false;
 	    }
 	  break;
 
@@ -2071,7 +2078,7 @@ elf_i386_relocate_section (bfd *output_bfd,
   Elf_Internal_Rela *relend;
   bool is_vxworks_tls;
   unsigned plt_entry_size;
-  bfd_boolean ignore_reloc_overflow;
+  bool ignore_reloc_overflow;
 
   /* Skip if check_relocs or scan_relocs failed.  */
   if (input_section->check_relocs_failed)
@@ -2102,7 +2109,7 @@ elf_i386_relocate_section (bfd *output_bfd,
 
   plt_entry_size = htab->plt.plt_entry_size;
 
-  ignore_reloc_overflow = FALSE;
+  ignore_reloc_overflow = false;
   rel = wrel = relocs;
   relend = relocs + input_section->reloc_count;
   for (; rel < relend; wrel++, rel++)
@@ -2799,6 +2806,7 @@ elf_i386_relocate_section (bfd *output_bfd,
 
 	case R_386_32:
 	case R_386_PC32:
+	case R_386_SEG16:
 	  if ((input_section->flags & SEC_ALLOC) == 0
 	      || is_vxworks_tls)
 	    break;
@@ -2844,11 +2852,15 @@ elf_i386_relocate_section (bfd *output_bfd,
 		    generate_dynamic_reloc = false;
 		  else
 		    {
-		      outrel.r_info = ELF32_R_INFO (0, R_386_RELATIVE);
+		      r_type = (r_type == R_386_SEG16)
+			? R_386_SEGRELATIVE : R_386_RELATIVE;
+		      outrel.r_info = ELF32_R_INFO (0, r_type);
 
 		      if (htab->params->report_relative_reloc)
 			_bfd_x86_elf_link_report_relative_reloc
-			  (info, input_section, h, sym, "R_386_RELATIVE",
+			  (info, input_section, h, sym,
+			   (r_type == R_386_SEGRELATIVE)
+			   ? "R_386_SEGRELATIVE" : "R_386_RELATIVE",
 			   &outrel);
 		    }
 		}
@@ -3511,9 +3523,6 @@ elf_i386_relocate_section (bfd *output_bfd,
 	   automatically since i386 uses REL, not RELA relocation.
 	   The previous relocation result becomes the addend for the
 	   current relocation.  */
-	case R_386_SEG16:
-	  break;
-
 	case R_386_SUB16:
 	case R_386_SUB32:
 	  relocation = -relocation;
