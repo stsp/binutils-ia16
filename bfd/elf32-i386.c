@@ -1917,7 +1917,7 @@ elf_i386_scan_relocs (bfd *abfd,
 
 	      p->count += 1;
 	      /* Count size relocation as PC-relative relocation.  */
-	      if (r_type == R_386_PC32 || r_type == R_386_SEG16 || size_reloc)
+	      if (r_type == R_386_PC32 || size_reloc)
 		p->pc_count += 1;
 	    }
 	  break;
