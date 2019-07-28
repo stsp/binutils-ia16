@@ -145,7 +145,7 @@ static reloc_howto_type elf_howto_table[]=
 #define R_386_ext2 (R_386_GOT32X + 1 - R_386_tls_offset)
 #define R_386_seg16_offset (R_386_SEG16 - R_386_ext2)
 
-  HOWTO(R_386_SEG16, 4, 1, 16, false, 0, complain_overflow_unsigned,
+  HOWTO(R_386_SEG16, 4, 1, 16, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SEG16",
 	true, 0xffff, 0xffff, false),
   HOWTO(R_386_SUB16, 0, 1, 16, false, 0, complain_overflow_bitfield,
