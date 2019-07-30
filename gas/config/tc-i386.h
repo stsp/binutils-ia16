@@ -359,7 +359,13 @@ extern bfd_vma x86_64_section_letter (int, const char **);
 #if defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)
 extern void x86_cleanup (void);
 #define md_cleanup() x86_cleanup ()
+
+extern int i386_elf_validate_fix_sub (struct fix *, segT);
+#define TC_VALIDATE_FIX_SUB i386_elf_validate_fix_sub
 #endif
+
+#define RELOC_EXPANSION_POSSIBLE 1
+#define MAX_RELOC_EXPANSION 2
 
 #ifdef TE_PE
 
