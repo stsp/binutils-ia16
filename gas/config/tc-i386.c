@@ -10382,11 +10382,11 @@ lex_got (enum bfd_reloc_code_real *rel,
 		{
 		  if (flag_code != CODE_64BIT)
 		    {
-		      if (gotrel[j].sizemask & 2) {
+		      if (gotrel[j].sizemask & size & 2) {
 			types->bitfield.imm16 = 1;
 			types->bitfield.disp16 = 1;
 		      }
-		      if (gotrel[j].sizemask & 4) {
+		      if (gotrel[j].sizemask & size & 4) {
 			types->bitfield.imm32 = 1;
 			types->bitfield.disp32 = 1;
 		      }
@@ -10512,11 +10512,11 @@ lex_got (enum bfd_reloc_code_real *rel ATTRIBUTE_UNUSED,
 		{
 		  if (flag_code != CODE_64BIT)
 		    {
-		      if (gotrel[j].sizemask & 2) {
+		      if (gotrel[j].sizemask & size & 2) {
 			types->bitfield.imm16 = 1;
 			types->bitfield.disp16 = 1;
 		      }
-		      if (gotrel[j].sizemask & 4) {
+		      if (gotrel[j].sizemask & size & 4) {
 			types->bitfield.imm32 = 1;
 			types->bitfield.disp32 = 1;
 		      }
