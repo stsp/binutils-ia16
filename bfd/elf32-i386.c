@@ -169,7 +169,7 @@ static reloc_howto_type elf_howto_table[]=
 
   /* Another gap.  */
 #define R_386_ext3 (R_386_SEGRELATIVE + 1 - R_386_seg16_offset)
-#define R_386_ia16_offset (R_386_SEGMENT16 - R_386_ext2)
+#define R_386_ia16_offset (R_386_SEGMENT16 - R_386_ext3)
 
   /* IA16.  */
   HOWTO(R_386_SEGMENT16, 0, 1, 16, false, 0, complain_overflow_dont,
@@ -181,7 +181,7 @@ static reloc_howto_type elf_howto_table[]=
 
   /* Yet another gap.  */
 #define R_386_ext4 (R_386_RELSEG16 + 1 - R_386_ia16_offset)
-#define R_386_vt_offset (R_386_GNU_VTINHERIT - R_386_ext3)
+#define R_386_vt_offset (R_386_GNU_VTINHERIT - R_386_ext4)
 
 /* GNU extension to record C++ vtable hierarchy.  */
   HOWTO (R_386_GNU_VTINHERIT,	/* type */
