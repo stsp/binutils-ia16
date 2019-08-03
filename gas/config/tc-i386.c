@@ -14399,10 +14399,10 @@ i386_elf_symbol_new_hook (symbolS *symbolP)
   if (! S_IS_EXTERNAL (symbolP) && S_GET_SEGMENT (symbolP) == absolute_section)
     return;
 
-  /* For each symbol "foo", create a slot in the symbol table for a "foo!".
+  /* For each symbol `foo', create a slot in the symbol table for a `foo!'.
 
-     If "foo" is already defined and known to be in a section ".bar" or
-     ".bar$", then also create a section named ".bar!".
+     If `foo' is already defined and known to be in a section `.bar' or
+     `.bar$', then also create a section named `.bar!'.
 
      And, always create an auxiliary section for our current setion.  */
   baseP = i386_elf_find_segelf_base_symbol (symbolP);
@@ -14436,6 +14436,15 @@ i386_elf_frob_symbol (symbolS *symbolP)
   if (name_len == 0 || name[name_len - 1] != '!')
     return 0;
 
+  /* For each symbol `foo!' which is not already fleshed out, look up the
+     symbol `foo'.  If `foo' has been referenced, then define `foo!'
+     appropriately.
+
+     Note that `foo!' needs to be defined correctly
+       * whether `foo' is local, global, or only defined outside;
+       * whether or not `foo' is defined through `.comm' or `.lcomm'
+       * whether or not `foo' is an absolute value
+       * whether or not `foo' is weak...  */
   thang_name = xstrdup (name);
   thang_name[name_len - 1] = 0;
 
