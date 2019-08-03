@@ -362,6 +362,12 @@ extern void x86_cleanup (void);
 
 extern int i386_elf_validate_fix_sub (struct fix *, segT);
 #define TC_VALIDATE_FIX_SUB i386_elf_validate_fix_sub
+
+extern void i386_elf_symbol_new_hook (symbolS *);
+#define tc_symbol_new_hook i386_elf_symbol_new_hook
+
+extern int i386_elf_frob_symbol (symbolS *);
+#define tc_frob_symbol(symbolP, punt) ((punt) = i386_elf_frob_symbol (symbolP))
 #endif
 
 #define RELOC_EXPANSION_POSSIBLE 1

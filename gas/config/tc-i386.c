@@ -14348,6 +14348,126 @@ i386_elf_validate_fix_sub (fixS *fixp, segT seg)
   return fixp->fx_r_type == BFD_RELOC_GPREL32
     || fixp->fx_r_type == BFD_RELOC_GPREL16;
 }
+
+static segT
+i386_elf_ensure_segelf_aux_seg (segT seg)
+{
+  const char *name;
+  char *aux_name;
+  size_t name_len;
+  asection *aux_seg;
+
+  if (seg == absolute_section)
+    return seg;
+
+  if (! SEG_NORMAL (seg))
+    return undefined_section;
+
+  if (bfd_is_com_section (seg))
+    seg = bss_section;
+
+  name = segment_name (seg);
+  name_len = strlen (name);
+  if (name_len == 0 || name[name_len - 1] == '!')
+    return seg;
+
+  aux_name = xmalloc (name_len + 2);
+  if (name[name_len - 1] == '$')
+    --name_len;
+  memcpy (aux_name, name, name_len);
+  aux_name[name_len] = '!';
+  aux_name[name_len + 1] = 0;
+
+  aux_seg = bfd_make_section_old_way (stdoutput, aux_name);
+  if (aux_seg)
+    bfd_set_section_flags (stdoutput, aux_seg, SEC_READONLY | SEC_ALLOC);
+
+  return aux_seg;
+}
+
+static symbolS * i386_elf_find_segelf_base_symbol (symbolS *);
+
+void
+i386_elf_symbol_new_hook (symbolS *symbolP)
+{
+  symbolS *baseP;
+  segT seg;
+
+  if (x86_elf_abi != I386_SEGELF_ABI)
+    return;
+
+  if (! S_IS_EXTERNAL (symbolP) && S_GET_SEGMENT (symbolP) == absolute_section)
+    return;
+
+  /* For each symbol "foo", create a slot in the symbol table for a "foo!".
+
+     If "foo" is already defined and known to be in a section ".bar" or
+     ".bar$", then also create a section named ".bar!".
+
+     And, always create an auxiliary section for our current setion.  */
+  baseP = i386_elf_find_segelf_base_symbol (symbolP);
+  if (baseP == NULL || baseP == symbolP)
+    return;
+
+  seg = S_GET_SEGMENT (symbolP);
+  i386_elf_ensure_segelf_aux_seg (seg);
+
+  if (seg != now_seg)
+    i386_elf_ensure_segelf_aux_seg (now_seg);
+}
+
+int
+i386_elf_frob_symbol (symbolS *symbolP)
+{
+  const char *name;
+  char *thang_name;
+  size_t name_len;
+  symbolS *thangP;
+  segT thang_seg, anchor_seg;
+
+  if (x86_elf_abi != I386_SEGELF_ABI)
+    return 0;
+
+  if (S_GET_SEGMENT (symbolP) != undefined_section)
+    return 0;
+
+  name = S_GET_NAME (symbolP);
+  name_len = strlen (name);
+  if (name_len == 0 || name[name_len - 1] != '!')
+    return 0;
+
+  thang_name = xstrdup (name);
+  thang_name[name_len - 1] = 0;
+
+  thangP = symbol_find (thang_name);
+  free (thang_name);
+  if (! thangP)
+    return 0;
+
+  thang_seg = S_GET_SEGMENT (thangP);
+  if (! SEG_NORMAL (thang_seg))
+    {
+      if (S_IS_EXTERNAL (thangP))
+        S_SET_WEAK (symbolP);
+      else
+	{
+	  S_SET_VALUE (symbolP, 0);
+	  S_SET_SEGMENT (symbolP, absolute_section);
+	  S_CLEAR_EXTERNAL (symbolP);
+	}
+    }
+  else
+    {
+      anchor_seg = i386_elf_ensure_segelf_aux_seg (thang_seg);
+      S_SET_VALUE (symbolP, 0);
+      S_SET_SEGMENT (symbolP, anchor_seg);
+      if (S_IS_EXTERNAL (thangP))
+	S_SET_EXTERNAL (symbolP);
+      else
+	S_CLEAR_EXTERNAL (symbolP);
+    }
+  return 0;
+}
 #endif
 
 /* Remember constant directive.  */
@@ -14453,19 +14573,19 @@ i386_elf_find_segelf_base_symbol (symbolS *symbolP)
 {
   const char *name = S_GET_NAME (symbolP);
   size_t name_len = strlen (name);
-  char *base_name;
+  char *seg_base_name;
   symbolS *baseP;
 
   if (name_len != 0 && name[name_len - 1] == '!')
     return symbolP;
 
-  base_name = xmalloc (strlen (name) + 2);
-  memcpy (base_name, name, name_len);
-  base_name[name_len] = '!';
-  base_name[name_len + 1] = 0;
+  seg_base_name = xmalloc (strlen (name) + 2);
+  memcpy (seg_base_name, name, name_len);
+  seg_base_name[name_len] = '!';
+  seg_base_name[name_len + 1] = 0;
 
-  baseP = symbol_find_or_make (base_name);
-  free (base_name);
+  baseP = symbol_find_or_make (seg_base_name);
+  free (seg_base_name);
 
   return baseP;
 }
@@ -14731,15 +14851,18 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
     }
 
 #if defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)
-  if (x86_elf_abi == I386_SEGELF_ABI && ! fixp->fx_pcrel)
+  if (x86_elf_abi == I386_SEGELF_ABI)
     {
-      switch (fixp->fx_size)
+      switch (code)
 	{
+	case BFD_RELOC_16:
+	  code = BFD_RELOC_386_SUB16;
+	  break;
+	case BFD_RELOC_32:
+	  code = BFD_RELOC_386_SUB32;
+	  break;
 	default:
 	  code = 0;
-	  break;
-	case 2: code = BFD_RELOC_386_SUB16; break;
-	case 4: code = BFD_RELOC_386_SUB32; break;
 	}
 
       if (code)
