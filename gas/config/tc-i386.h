@@ -365,7 +365,7 @@ extern int i386_elf_validate_fix_sub (struct fix *, segT);
 #endif
 
 #define RELOC_EXPANSION_POSSIBLE 1
-#define MAX_RELOC_EXPANSION 2
+#define MAX_RELOC_EXPANSION 3
 
 #ifdef TE_PE
 
