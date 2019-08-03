@@ -14447,7 +14447,7 @@ i386_elf_frob_symbol (symbolS *symbolP)
   thang_seg = S_GET_SEGMENT (thangP);
   if (! SEG_NORMAL (thang_seg))
     {
-      if (S_IS_EXTERNAL (thangP))
+      if (S_IS_EXTERNAL (thangP) || S_IS_WEAK (thangP))
         S_SET_WEAK (symbolP);
       else
 	{
@@ -14461,7 +14461,9 @@ i386_elf_frob_symbol (symbolS *symbolP)
       anchor_seg = i386_elf_ensure_segelf_aux_seg (thang_seg);
       S_SET_VALUE (symbolP, 0);
       S_SET_SEGMENT (symbolP, anchor_seg);
-      if (S_IS_EXTERNAL (thangP))
+      if (S_IS_WEAK (thangP))
+	S_SET_WEAK (symbolP);
+      else if (S_IS_EXTERNAL (thangP))
 	S_SET_EXTERNAL (symbolP);
       else
 	S_CLEAR_EXTERNAL (symbolP);
