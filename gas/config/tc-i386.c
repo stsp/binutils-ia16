@@ -14378,9 +14378,17 @@ i386_elf_ensure_segelf_aux_seg (segT seg)
   aux_name[name_len] = '!';
   aux_name[name_len + 1] = 0;
 
-  aux_seg = bfd_make_section_old_way (stdoutput, aux_name);
-  if (aux_seg)
-    bfd_set_section_flags (stdoutput, aux_seg, SEC_READONLY | SEC_ALLOC);
+  aux_seg = bfd_make_section_with_flags (stdoutput, aux_name,
+					 SEC_READONLY | SEC_ALLOC);
+  if (! aux_seg)
+    {
+      aux_seg = bfd_get_section_by_name (stdoutput, aux_name);
+      if (! aux_seg)
+	{
+	  as_bad (_("cannot create segelf auxiliary section `%s'"), aux_name);
+	  return absolute_section;
+	}
+    }
 
   return aux_seg;
 }
@@ -14423,7 +14431,7 @@ i386_elf_frob_symbol (symbolS *symbolP)
   char *thang_name;
   size_t name_len;
   symbolS *thangP;
-  segT thang_seg, anchor_seg;
+  segT thang_seg, aux_seg;
 
   if (x86_elf_abi != I386_SEGELF_ABI)
     return 0;
@@ -14468,9 +14476,9 @@ i386_elf_frob_symbol (symbolS *symbolP)
     }
   else
     {
-      anchor_seg = i386_elf_ensure_segelf_aux_seg (thang_seg);
+      aux_seg = i386_elf_ensure_segelf_aux_seg (thang_seg);
       S_SET_VALUE (symbolP, 0);
-      S_SET_SEGMENT (symbolP, anchor_seg);
+      S_SET_SEGMENT (symbolP, aux_seg);
       if (S_IS_WEAK (thangP))
 	S_SET_WEAK (symbolP);
       else if (S_IS_EXTERNAL (thangP))
