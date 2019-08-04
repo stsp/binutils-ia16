@@ -169,18 +169,18 @@ static reloc_howto_type elf_howto_table[]=
 
   /* Another gap.  */
 #define R_386_ext3 (R_386_SEGRELATIVE + 1 - R_386_seg16_offset)
-#define R_386_ia16_offset (R_386_SEGMENT16 - R_386_ext3)
+#define R_386_ia16_offset (R_386_OZSEG16 - R_386_ext3)
 
   /* IA16.  */
-  HOWTO(R_386_SEGMENT16, 0, 1, 16, false, 0, complain_overflow_dont,
-	bfd_i386_elf_segment16_reloc, "R_386_SEGMENT16",
+  HOWTO(R_386_OZSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
+	bfd_i386_elf_segment16_reloc, "R_386_OZSEG16",
 	true, 0xffff, 0xffff, false),
-  HOWTO(R_386_RELSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
-	bfd_i386_elf_relseg16_reloc, "R_386_RELSEG16",
+  HOWTO(R_386_OZRELSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
+	bfd_i386_elf_relseg16_reloc, "R_386_OZRELSEG16",
 	true, 0xffff, 0xffff, false),
 
   /* Yet another gap.  */
-#define R_386_ext4 (R_386_RELSEG16 + 1 - R_386_ia16_offset)
+#define R_386_ext4 (R_386_OZRELSEG16 + 1 - R_386_ia16_offset)
 #define R_386_vt_offset (R_386_GNU_VTINHERIT - R_386_ext4)
 
 /* GNU extension to record C++ vtable hierarchy.  */
@@ -239,9 +239,9 @@ bfd_i386_elf_get_paragraph_distance (asection *input_section,
   if (bfd_is_const_section (input_section) || ! output_section)
     {
       /* xgettext:c-format */
-      _bfd_error_handler (_("R_386_SEGMENT16 or R_386_RELSEG16 for \
+      _bfd_error_handler (_("R_386_OZSEG16 or R_386_OZRELSEG16 for \
 symbol with no output section"));
-      return FALSE;
+      return false;
     }
 
   output_bfd = output_section->owner;
@@ -253,7 +253,7 @@ symbol with no output section"));
   if (lma % 16 != vma % 16)
     {
       /* xgettext:c-format */
-      _bfd_error_handler (_("%pB: R_386_SEGMENT16 or R_386_RELSEG16 with \
+      _bfd_error_handler (_("%pB: R_386_OZSEG16 or R_386_OZRELSEG16 with \
 unaligned section `%pA'"), output_bfd, output_section);
       return false;
     }
@@ -267,7 +267,7 @@ unaligned section `%pA'"), output_bfd, output_section);
   if (hdr_sec->lma % 16 != 0 || hdr_sec->size % 16 != 0)
     {
       /* xgettext:c-format */
-      _bfd_error_handler (_("%pB: R_386_SEGMENT16 or R_386_RELSEG16 with \
+      _bfd_error_handler (_("%pB: R_386_OZSEG16 or R_386_OZRELSEG16 with \
 unaligned MZ header"), output_bfd);
       return false;
     }
@@ -277,12 +277,12 @@ unaligned MZ header"), output_bfd);
   return true;
 }
 
-/* Either install or perform an R_386_SEGMENT16 relocation.
+/* Either install or perform an R_386_OZSEG16 relocation.
 
-   This function simply treats R_386_SEGMENT16 relocations as if they are
-   R_386_RELSEG16 relocations.  It is assumed that the elf_i386_msdos_mz
+   This function simply treats R_386_OZSEG16 relocations as if they are
+   R_386_OZRELSEG16 relocations.  It is assumed that the elf_i386_msdos_mz
    linker emulation code (e.g.) has created the MZ relocation entry (e.g.)
-   needed to properly implement R_386_SEGMENT16.  This is a bit of a hack.
+   needed to properly implement R_386_OZSEG16.  This is a bit of a hack.
 								-- tkchia  */
 static bfd_reloc_status_type
 bfd_i386_elf_segment16_reloc (bfd *abfd, arelent *reloc_entry,
@@ -296,7 +296,7 @@ bfd_i386_elf_segment16_reloc (bfd *abfd, arelent *reloc_entry,
 				      error_message);
 }
 
-/* Either install or perform an R_386_RELSEG16 relocation.  */
+/* Either install or perform an R_386_OZRELSEG16 relocation.  */
 static bfd_reloc_status_type
 bfd_i386_elf_relseg16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
 			     void *data ATTRIBUTE_UNUSED,
@@ -490,13 +490,13 @@ elf_i386_reloc_type_lookup (bfd *abfd,
       TRACE ("BFD_RELOC_386_SEGRELATIVE");
       return &elf_howto_table[R_386_SEGRELATIVE - R_386_seg16_offset];
 
-    case BFD_RELOC_386_SEGMENT16:
-      TRACE ("BFD_RELOC_386_SEGMENT16");
-      return &elf_howto_table[R_386_SEGMENT16 - R_386_ia16_offset];
+    case BFD_RELOC_386_OZSEG16:
+      TRACE ("BFD_RELOC_386_OZSEG16");
+      return &elf_howto_table[R_386_OZSEG16 - R_386_ia16_offset];
 
-    case BFD_RELOC_386_RELSEG16:
-      TRACE ("BFD_RELOC_386_RELSEG16");
-      return &elf_howto_table[R_386_RELSEG16 - R_386_ia16_offset];
+    case BFD_RELOC_386_OZRELSEG16:
+      TRACE ("BFD_RELOC_386_OZRELSEG16");
+      return &elf_howto_table[R_386_OZRELSEG16 - R_386_ia16_offset];
 
     case BFD_RELOC_VTABLE_INHERIT:
       TRACE ("BFD_RELOC_VTABLE_INHERIT");
@@ -2936,8 +2936,8 @@ elf_i386_relocate_section (bfd *output_bfd,
 	  unresolved_reloc = false;
 	  break;
 
-	case R_386_SEGMENT16:
-	case R_386_RELSEG16:
+	case R_386_OZSEG16:	/* see bfd_i386_elf_segment16_reloc above */
+	case R_386_OZRELSEG16:
 	  if (! bfd_i386_elf_get_paragraph_distance (sec, &relocation))
 	    {
 	      bfd_set_error (bfd_error_bad_value);

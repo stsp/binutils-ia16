@@ -3430,8 +3430,8 @@ tc_i386_fix_adjustable (fixS *fixP ATTRIBUTE_UNUSED)
       || fixP->fx_r_type == BFD_RELOC_386_TLS_LE
       || fixP->fx_r_type == BFD_RELOC_386_TLS_GOTDESC
       || fixP->fx_r_type == BFD_RELOC_386_TLS_DESC_CALL
-      || fixP->fx_r_type == BFD_RELOC_386_SEGMENT16
-      || fixP->fx_r_type == BFD_RELOC_386_RELSEG16
+      || fixP->fx_r_type == BFD_RELOC_386_OZSEG16
+      || fixP->fx_r_type == BFD_RELOC_386_OZRELSEG16
       || fixP->fx_r_type == BFD_RELOC_X86_64_GOT32
       || fixP->fx_r_type == BFD_RELOC_X86_64_GOTPCREL
       || fixP->fx_r_type == BFD_RELOC_X86_64_GOTPCRELX
@@ -10287,15 +10287,22 @@ lex_got (enum bfd_reloc_code_real *rel,
     { STRING_COMMA_LEN ("SIZE"),      { BFD_RELOC_SIZE32,
 					BFD_RELOC_SIZE32 },
       4|8, OPERAND_TYPE_IMM32_64, false },
-    { STRING_COMMA_LEN ("SEGMENT16"),{ BFD_RELOC_386_SEGMENT16,
+    { STRING_COMMA_LEN ("OZSEG16"),   { BFD_RELOC_386_OZSEG16,
+				       _dummy_first_bfd_reloc_code_real },
+      2, OPERAND_TYPE_NONE, false },
+    { STRING_COMMA_LEN ("OZRELSEG16"),{ BFD_RELOC_386_OZRELSEG16,
+				       _dummy_first_bfd_reloc_code_real },
+      2, OPERAND_TYPE_NONE, false },
+    /* SEGMENT16 and RELSEG16 are old names for compatibility. */
+    { STRING_COMMA_LEN ("SEGMENT16"),{ BFD_RELOC_386_OZSEG16,
+				       _dummy_first_bfd_reloc_code_real },
+      2, OPERAND_TYPE_NONE, false },
+    { STRING_COMMA_LEN ("RELSEG16"), { BFD_RELOC_386_OZRELSEG16,
 				       _dummy_first_bfd_reloc_code_real },
       2, OPERAND_TYPE_NONE, false },
     { STRING_COMMA_LEN ("SEG"),      { BFD_RELOC_386_SEG16,
-				       0 /* not supported */ },
-      2, OPERAND_TYPE_IMM16, false },
-    { STRING_COMMA_LEN ("RELSEG16"), { BFD_RELOC_386_RELSEG16,
 				       _dummy_first_bfd_reloc_code_real },
-      2, OPERAND_TYPE_NONE, false },
+      2, OPERAND_TYPE_IMM16, false },
 #endif
     { STRING_COMMA_LEN ("PLTOFF"),   { _dummy_first_bfd_reloc_code_real,
 				       BFD_RELOC_X86_64_PLTOFF64 },
@@ -14698,8 +14705,8 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
     case BFD_RELOC_386_SEG16:
     case BFD_RELOC_386_SUB16:
     case BFD_RELOC_386_SUB32:
-    case BFD_RELOC_386_SEGMENT16:
-    case BFD_RELOC_386_RELSEG16:
+    case BFD_RELOC_386_OZSEG16:
+    case BFD_RELOC_386_OZRELSEG16:
     case BFD_RELOC_X86_64_TLSGD:
     case BFD_RELOC_X86_64_TLSLD:
     case BFD_RELOC_X86_64_DTPOFF32:

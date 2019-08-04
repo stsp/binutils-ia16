@@ -26,8 +26,8 @@ fragment <<EOF
 
 #line 28 "i386-msdos-mz.em"  /* to aid debugging */
 
-#include <stdint.h>
 #include "ldctor.h"
+#include "ldlex.h"
 #include "elf/i386.h"
 #include "bfd.h"
 #include "libiberty.h"
@@ -41,10 +41,10 @@ static bfd_vma num_mz_reloc_sections = 0;
 static void
 i386_mz_after_open (void)
 {
-  /* For each input file, check if it uses any R_386_SEGMENT16 relocations.
+  /* For each input file, check if it uses any R_386_OZSEG16 relocations.
      If it does, add a .msdos_mz_reloc.* section to it, with the right size.
 
-     Try not to waste memory on sections with no R_386_SEGMENT16
+     Try not to waste memory on sections with no R_386_OZSEG16
      relocations.  -- tkchia  */
   size_t num_new_secs = 0, new_secs_top = 0;
   asection **new_secs = NULL;
@@ -76,25 +76,27 @@ i386_mz_after_open (void)
 		  /* xgettext:c-format */
 		  einfo (_("%P: errors encountered processing file %s\n"),
 			 is->filename);
+		  bfd_set_error (bfd_error_bad_value);
 		  goto cont;
 		}
 
 	      irelend = irels + sec->reloc_count;
 	      for (irel = irels; irel != irelend; ++irel)
 		{
-		  long r_type = ELF32_R_TYPE (irel->r_info);
-		  if (r_type == R_386_SEGMENT16)
+		  switch (ELF32_R_TYPE (irel->r_info))
 		    {
+		    case R_386_OZSEG16:
 		      if (num_mz >= 0xffffu)
 			{
 			  /* xgettext:c-format */
 			  einfo (_("%P: too many MZ relocations needed\n"));
+			  bfd_set_error (bfd_error_bad_value);
 			  if (elf_section_data (sec)->relocs != irels)
 			    free (irels);
 			  goto cont;
 			}
-
 		      ++num_mz;
+		      break;
 		    }
 		}
 
@@ -115,12 +117,13 @@ i386_mz_after_open (void)
 						    | SEC_HAS_CONTENTS
 						    | SEC_KEEP);
 	  if (! mz_section_name || ! mz_section
-	      || ! bfd_set_section_size (abfd, mz_section,
+	      || ! bfd_set_section_size (mz_section,
 					 4 * num_mz * sizeof (bfd_byte)))
 	    {
 	      /* xgettext:c-format */
 	      einfo (_("%P: cannot make MZ relocation section for file %s\n"),
 		     is->filename);
+	      bfd_set_error (bfd_error_no_memory);
 	      goto cont;
 	    }
 
@@ -130,6 +133,7 @@ i386_mz_after_open (void)
 	      /* xgettext:c-format */
 	      einfo (_("%P: no memory for MZ relocations for file %s\n"),
 		     is->filename);
+	      bfd_set_error (bfd_error_no_memory);
 	      goto cont;
 	    }
 
@@ -140,6 +144,7 @@ i386_mz_after_open (void)
 	    {
 	      /* xgettext:c-format */
 	      einfo (_("%P: too many MZ relocation sections needed\n"));
+	      bfd_set_error (bfd_error_file_too_big);
 	      goto cont;
 	    }
 
@@ -193,7 +198,9 @@ gld${EMULATION_NAME}_finish (void)
 	      if (hdr_sec->lma % 16 != 0 || hdr_sec->size % 16 != 0)
 		{
 		  /* xgettext:c-format */
-		  einfo (_("%P: R_386_SEGMENT16 with unaligned MZ header\n"));
+		  einfo (_("%P: R_386_OZSEG16 with unaligned \
+MZ header\n"));
+		  bfd_set_error (bfd_error_bad_value);
 		  break;
 		}
 
@@ -218,6 +225,7 @@ gld${EMULATION_NAME}_finish (void)
 		  /* xgettext:c-format */
 		  einfo (_("%P: errors encountered processing file %s\n"),
 			 ibfd->filename);
+		  bfd_set_error (bfd_error_bad_value);
 		  goto cont;
 		}
 
@@ -226,14 +234,15 @@ gld${EMULATION_NAME}_finish (void)
 		{
 		  long r_info = irel->r_info;
 		  long r_type = ELF32_R_TYPE (r_info);
-		  if (r_type == R_386_SEGMENT16)
+		  if (r_type == R_386_OZSEG16)
 		    {
 		      bfd_vma olma = osec->lma, ovma = osec->vma;
 		      if (olma % 16 != ovma % 16)
 			{
 			  /* xgettext:c-format */
-			  einfo (_("%P: R_386_SEGMENT16 with \
+			  einfo (_("%P: R_386_OZSEG16 with \
 unaligned output section\n"));
+			  bfd_set_error (bfd_error_bad_value);
 			  break;
 			}
 		      bfd_put_16 (ibfd,
