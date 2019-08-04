@@ -72,6 +72,16 @@ require that the necessary BFD support has been included (on a 32-bit
 platform you have to add --enable-64-bit-bfd to configure enable 64-bit
 usage and use x86-64 as target platform).
 
+@cindex @samp{--32-segelf} option, i386
+@cindex @samp{--32-segelf} option, x86-64
+@item --32-segelf
+Select the Intel i386 architecture, and produce an object file which
+follows H.@: Peter Anvin's proposed 16-bit segmented code ABI,
+@url{https://git.zytor.com/users/hpa/segelf/abi.git/plain/segelf.txt}.
+
+This option is experimental and only available with the ELF object file
+format.
+
 @item -n
 By default, x86 GAS replaces multiple nop instructions used for
 alignment within code sections with multi-byte nop instructions such
