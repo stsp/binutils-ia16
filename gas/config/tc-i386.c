@@ -14411,7 +14411,10 @@ i386_elf_symbol_new_hook (symbolS *symbolP)
   if (x86_elf_abi != I386_SEGELF_ABI)
     return;
 
-  if (! S_IS_EXTERNAL (symbolP) && S_GET_SEGMENT (symbolP) == absolute_section)
+  if ((! S_IS_EXTERNAL (symbolP)
+       && S_GET_SEGMENT (symbolP) == absolute_section
+       && S_GET_VALUE (symbolP) == 0)
+      || strcmp (S_GET_NAME (symbolP), GLOBAL_OFFSET_TABLE_NAME) == 0)
     return;
 
   /* For each symbol `foo', create a slot in the symbol table for a `foo!'.
