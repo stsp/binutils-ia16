@@ -62,7 +62,6 @@ i386_mz_after_open (void)
 	    {
 	      if (sec->reloc_count == 0
 		  || (sec->flags & SEC_EXCLUDE)
-		  || ! (sec->flags & SEC_ALLOC)
 		  || ! (sec->flags & SEC_RELOC))
 		continue;
 
@@ -209,7 +208,6 @@ MZ header\n"));
 	      if (sec == mz_section
 		  || sec->reloc_count == 0
 		  || (sec->flags & SEC_EXCLUDE)
-		  || ! (sec->flags & SEC_ALLOC)
 		  || ! (sec->flags & SEC_RELOC))
 		continue;
 
