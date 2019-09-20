@@ -316,7 +316,15 @@ bfd_i386_elf_relseg16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
 	 > bfd_get_section_limit (abfd, input_section))
     return bfd_reloc_outofrange;
 
-  if (! bfd_i386_elf_get_paragraph_distance (symbol->section, &paras))
+  if ((symbol->flags & BSF_WEAK) != 0
+      && bfd_is_und_section (symbol->section))
+    /* tkchia 20190920 FIXME:
+	 1) If this is a R_386_OZSEG16 relocation, we will get a spurious
+	    MZ relocation, which should really be suppressed.
+	 2) We should really also fix the ELF linker side of things to
+	    properly handle IA-16 relocations on weak symbols.  -- tkchia  */
+    paras = 0;
+  else if (! bfd_i386_elf_get_paragraph_distance (symbol->section, &paras))
     return bfd_reloc_other;
 
   return _bfd_relocate_contents (&elf_howto_table[R_386_16 - R_386_ext_offset],
