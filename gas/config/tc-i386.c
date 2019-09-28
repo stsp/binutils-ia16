@@ -14356,8 +14356,9 @@ i386_elf_validate_fix_sub (fixS *fixp, segT seg)
     || fixp->fx_r_type == BFD_RELOC_GPREL16;
 }
 
+/* WHICH is '!' or '~'. */
 static segT
-i386_elf_ensure_segelf_aux_seg (segT seg)
+i386_elf_ensure_segelf_aux_seg (segT seg, char which)
 {
   const char *name;
   char *aux_name;
@@ -14375,14 +14376,18 @@ i386_elf_ensure_segelf_aux_seg (segT seg)
 
   name = segment_name (seg);
   name_len = strlen (name);
-  if (name_len == 0 || name[name_len - 1] == '!')
-    return seg;
+  if (name_len != 0)
+    {
+      char tail = name[name_len - 1];
+      if (tail == which)
+	return seg;
+      else if (tail == '$' || tail == ('!' ^ '~' ^ which))
+	--name_len;
+    }
 
   aux_name = xmalloc (name_len + 2);
-  if (name[name_len - 1] == '$')
-    --name_len;
   memcpy (aux_name, name, name_len);
-  aux_name[name_len] = '!';
+  aux_name[name_len] = which;
   aux_name[name_len + 1] = 0;
 
   aux_seg = bfd_make_section_with_flags (stdoutput, aux_name,
@@ -14400,46 +14405,55 @@ i386_elf_ensure_segelf_aux_seg (segT seg)
   return aux_seg;
 }
 
+/* WHICH is '!' or '~'. */
 static symbolS *
-i386_elf_find_segelf_base_symbol (symbolS *symbolP)
+i386_elf_find_segelf_aux_symbol (symbolS *symbolP, char which)
 {
   const char *name = S_GET_NAME (symbolP);
   size_t name_len = strlen (name);
-  char *ia16_base_name;
+  char *ia16_aux_name;
   symbolS *baseP;
 
   if (name_len == strlen (GLOBAL_OFFSET_TABLE_NAME)
       && memcmp (name, GLOBAL_OFFSET_TABLE_NAME, name_len) == 0)
     return NULL;
 
-  if (name_len != 0 && name[name_len - 1] == '!')
-    return symbolP;
-
-  /*
-   * Handle the special case where SYMBOLP is a section symbol.  We cannot
-   * rely on section_symbol (.) to work correctly, since GAS might still be
-   * constructing that very symbol at this point.
-   */
-  if (! S_IS_EXTERNAL (symbolP) && S_GET_VALUE (symbolP) == 0)
+  if (name_len != 0)
     {
-      segT seg = S_GET_SEGMENT (symbolP);
-      if (seg != undefined_section
-	  && strcmp (name, seg->symbol->name) == 0)
+      char tail = name[name_len - 1];
+
+      if (tail == which)
+	return symbolP;
+
+      if (tail == ('!' ^ '~' ^ which))
+	return NULL;
+
+      /*
+       * Handle the special case where SYMBOLP is a section symbol.  We
+       * cannot rely on section_symbol (.) to work correctly, since GAS
+       * might still be constructing that very symbol at this point.
+       */
+      if (! S_IS_EXTERNAL (symbolP) && S_GET_VALUE (symbolP) == 0)
 	{
-	  if (seg == absolute_section)
-	    return symbolP;
-	  if (name_len != 0 && name[name_len - 1] == '$')
-	    --name_len;
+	  segT seg = S_GET_SEGMENT (symbolP);
+	  if (seg != undefined_section
+	      && strcmp (name, seg->symbol->name) == 0)
+	    {
+	      if (seg == absolute_section)
+		return symbolP;
+	      if (tail == '$')
+		--name_len;
+	    }
 	}
     }
 
-  ia16_base_name = xmalloc (name_len + 2);
-  memcpy (ia16_base_name, name, name_len);
-  ia16_base_name[name_len] = '!';
-  ia16_base_name[name_len + 1] = 0;
+  ia16_aux_name = xmalloc (name_len + 2);
+  memcpy (ia16_aux_name, name, name_len);
+  ia16_aux_name[name_len] = which;
+  ia16_aux_name[name_len + 1] = 0;
 
-  baseP = symbol_find_or_make (ia16_base_name);
-  free (ia16_base_name);
+  baseP = symbol_find_or_make (ia16_aux_name);
+  free (ia16_aux_name);
 
   return baseP;
 }
@@ -14447,40 +14461,52 @@ i386_elf_find_segelf_base_symbol (symbolS *symbolP)
 void
 i386_elf_symbol_new_hook (symbolS *symbolP)
 {
-  symbolS *baseP;
-  segT seg;
+  symbolS *auxP;
+  segT seg = NULL;
 
   if (x86_elf_abi != I386_SEGELF_ABI)
     return;
 
   /*
    * For each symbol `foo' --- unless `foo' is _GLOBAL_OFFSET_TABLE_ ---
-   * create a slot in the symbol table for a `foo!'.  If `foo' is already
-   * defined and known to be in a section `bar' or `bar$', then also
-   * create a section named `bar!'.
+   * create slots in the symbol table for a `foo!' and a `foo~'.  If `foo'
+   * is already defined and known to be in a section `bar' or `bar$', then
+   * also create sections named `bar!' and `bar~'.
    *
    * As a special case, if `foo' _is_ the section symbol `bar$', then name
-   * our new symbol `bar!' rather than `bar$!'.
+   * our new symbols `bar!' and `bar~' rather than `bar$!' and `bar$~'.
    *
-   * And, always create an auxiliary section for our current section.
+   * And, always create auxiliary sections for our current section.
    */
-  baseP = i386_elf_find_segelf_base_symbol (symbolP);
-  if (baseP == NULL || baseP == symbolP)
-    return;
+  auxP = i386_elf_find_segelf_aux_symbol (symbolP, '!');
+  if (auxP && auxP != symbolP)
+    {
+      seg = S_GET_SEGMENT (symbolP);
+      i386_elf_ensure_segelf_aux_seg (seg, '!');
+      if (seg != now_seg)
+	i386_elf_ensure_segelf_aux_seg (now_seg, '!');
+    }
 
-  seg = S_GET_SEGMENT (symbolP);
-
-  i386_elf_ensure_segelf_aux_seg (seg);
-
-  if (seg != now_seg)
-    i386_elf_ensure_segelf_aux_seg (now_seg);
+  /*
+   * FIXME: we do not really need `foo~' if `foo' will be externally
+   * defined.
+   */
+  auxP = i386_elf_find_segelf_aux_symbol (symbolP, '~');
+  if (auxP && auxP != symbolP)
+    {
+      if (! seg)
+	seg = S_GET_SEGMENT (symbolP);
+      i386_elf_ensure_segelf_aux_seg (seg, '~');
+      if (seg != now_seg)
+	i386_elf_ensure_segelf_aux_seg (now_seg, '~');
+    }
 }
 
 int
 i386_elf_frob_symbol (symbolS *symbolP)
 {
   const char *name;
-  char *thang_name;
+  char *thang_name, tail;
   size_t name_len;
   symbolS *thangP;
   segT thang_seg, aux_seg;
@@ -14493,18 +14519,22 @@ i386_elf_frob_symbol (symbolS *symbolP)
 
   name = S_GET_NAME (symbolP);
   name_len = strlen (name);
-  if (name_len == 0 || name[name_len - 1] != '!')
+  if (name_len == 0)
+    return 0;
+
+  tail = name[name_len - 1];
+  if (tail != '!' && tail != '~')
     return 0;
 
   /*
-   * For each symbol `foo!' which is not already fleshed out, look up the
-   * symbol `foo'.  If `foo' has been referenced, then define `foo!'
-   * appropriately.
+   * For each symbol `foo!' or `foo~' which is not already fleshed out, look
+   * up the symbol `foo'.  If `foo' has been referenced, then define `foo!'
+   * and `foo~' appropriately.
    *
    * If there is no `foo', then look up `foo$', in case there is a section
    * symbol by that name.
    *
-   * Note that `foo!' needs to be defined correctly
+   * Note that `foo!' and `foo~' need to be defined correctly
    *   * whether `foo' is local, global, or only defined outside
    *   * whether or not `foo' (or `foo$') is a section symbol
    *   * whether or not `foo' is defined through `.comm' or `.lcomm'
@@ -14543,7 +14573,7 @@ i386_elf_frob_symbol (symbolS *symbolP)
     }
   else
     {
-      aux_seg = i386_elf_ensure_segelf_aux_seg (thang_seg);
+      aux_seg = i386_elf_ensure_segelf_aux_seg (thang_seg, tail);
       S_SET_VALUE (symbolP, 0);
       S_SET_SEGMENT (symbolP, aux_seg);
       if (S_IS_WEAK (thangP))
@@ -14930,7 +14960,8 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
 
       if (code)
 	{
-	  symbolS *baseP = i386_elf_find_segelf_base_symbol (fixp->fx_addsy);
+	  symbolS *baseP
+	    = i386_elf_find_segelf_aux_symbol (fixp->fx_addsy, '!');
 	  if (baseP)
 	    {
 	      *relp++ = rel = XNEW (arelent);
