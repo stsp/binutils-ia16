@@ -360,6 +360,7 @@ BFD32_BACKENDS = \
 	elfxx-tilegx.lo \
 	i386aout.lo \
 	i386bsd.lo \
+	i386elks.lo \
 	i386lynx.lo \
 	i386msdos.lo \
 	mach-o.lo \
@@ -492,6 +493,7 @@ BFD32_BACKENDS_CFILES = \
 	elfxx-tilegx.c \
 	i386aout.c \
 	i386bsd.c \
+	i386elks.c \
 	i386lynx.c \
 	i386msdos.c \
 	mach-o.c \

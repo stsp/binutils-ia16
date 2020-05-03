@@ -771,12 +771,7 @@ case "${targ}" in
 
   ia16-*-elf)
     targ_defvec=i386_elf32_vec
-    targ_selvecs="i386_msdos_vec i386_aout_vec"
-    ;;
-
-  ia16-*-elf)
-    targ_defvec=i386_elf32_vec
-    targ_selvecs="i386_msdos_vec i386_aout_vec"
+    targ_selvecs="i386_elks_vec i386_msdos_vec i386_aout_vec"
     ;;
 
   ip2k-*-elf)

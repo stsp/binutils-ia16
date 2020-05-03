@@ -749,6 +749,7 @@ extern const bfd_target i386_elf32_vec;
 extern const bfd_target i386_elf32_fbsd_vec;
 extern const bfd_target i386_elf32_sol2_vec;
 extern const bfd_target i386_elf32_vxworks_vec;
+extern const bfd_target i386_elks_vec;
 extern const bfd_target i386_mach_o_vec;
 extern const bfd_target i386_msdos_vec;
 extern const bfd_target i386_pe_vec;

@@ -475,6 +475,7 @@ pdfdir = @pdfdir@
 prefix = @prefix@
 program_transform_name = @program_transform_name@
 psdir = @psdir@
+runstatedir = @runstatedir@
 sbindir = @sbindir@
 sharedstatedir = @sharedstatedir@
 srcdir = @srcdir@
@@ -823,6 +824,7 @@ BFD32_BACKENDS = \
 	elfxx-tilegx.lo \
 	i386aout.lo \
 	i386bsd.lo \
+	i386elks.lo \
 	i386lynx.lo \
 	i386msdos.lo \
 	mach-o.lo \
@@ -955,6 +957,7 @@ BFD32_BACKENDS_CFILES = \
 	elfxx-tilegx.c \
 	i386aout.c \
 	i386bsd.c \
+	i386elks.c \
 	i386lynx.c \
 	i386msdos.c \
 	mach-o.c \
@@ -1666,6 +1669,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/hpux-core.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i386aout.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i386bsd.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i386elks.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i386lynx.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/i386msdos.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/ihex.Plo@am__quote@
