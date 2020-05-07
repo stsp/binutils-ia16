@@ -25,15 +25,19 @@ SECTIONS
   .text :
   {
     CREATE_OBJECT_SYMBOLS
-    *(.text)
+    *(.text .text.*)
     ${RELOCATING+etext = .;}
     ${RELOCATING+_etext = .;}
     ${RELOCATING+__etext = .;}
   }
-  .data 0 : AT (LOADADDR (.text) + SIZEOF (.text))
+  .fartext ${RELOCATING+0} : ${RELOCATING+AT(0x10000)}
   {
-    *(.rodata)
-    *(.data)
+    *(.fartext .fartext.*)
+  }
+  .data ${RELOCATING+0} : ${RELOCATING+AT(0x20000)}
+  {
+    *(.rodata .rodata.*)
+    *(.data .data.*)
     ${CONSTRUCTING+CONSTRUCTORS}
     ${RELOCATING+edata  =  .;}
     ${RELOCATING+_edata  =  .;}
@@ -43,7 +47,7 @@ SECTIONS
   {
    ${RELOCATING+ _bss_start = .};
    ${RELOCATING+ __bss_start = .};
-   *(.bss)
+   *(.bss .bss.*)
    *(COMMON)
    ${RELOCATING+end = ALIGN(4) };
    ${RELOCATING+_end = ALIGN(4) };

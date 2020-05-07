@@ -31,6 +31,9 @@ fragment <<EOF
 #include "elf/i386.h"
 #include "bfd.h"
 #include "libiberty.h"
+#include "elf-linker-x86.h"
+
+static struct elf_linker_x86_params params;
 
 static asection **mz_reloc_sections = NULL;
 static bfd_vma num_mz_reloc_sections = 0;

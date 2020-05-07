@@ -35,14 +35,29 @@ struct elks_aout_header
   uint8_t a_hdrlen;			/* Length of header. */
   uint8_t a_unused;			/* Reserved. */
   uint8_t a_version[2];			/* Version stamp (unused). */
-  uint8_t a_text[4];			/* Size of text section(s) in bytes. */
-  uint8_t a_data[4];			/* Size of data section(s) in bytes. */
-  uint8_t a_bss[4];			/* Size of BSS section(s) in bytes. */
+  uint8_t a_text[4];			/* Size of text section in bytes. */
+  uint8_t a_data[4];			/* Size of data section in bytes. */
+  uint8_t a_bss[4];			/* Size of BSS section in bytes. */
   uint8_t a_entry[4];			/* Entry point. */
   uint8_t a_total[4];			/* Total memory allocated (if separate
 					   I/D, for data and BSS). */
   uint8_t a_syms[4];			/* Symbol table size. */
+  /* The following fields are optional.  They are specified, but apparently
+     unused, in Minix. */
+  uint8_t a_trsize[4];			/* Length of text relocation info. */
+  uint8_t a_drsize[4];			/* Length of data relocation info. */
+  uint8_t a_tbase[4];			/* Text relocation base. */
+  uint8_t a_dbase[4];			/* Data relocation base. */
+  /* Not yet implemented in ELKS. */
+  uint8_t a_ftext[2];			/* Size of far text section in
+					   bytes. */
+  uint8_t a_ftrsize[2];			/* Length of far text relocation
+					   info. */
+  uint8_t a_unused2[12];		/* Reserved; should be 0. */
 };
+
+/* Minimum ELKS a.out header size. */
+#define ELKS_MIN_HDR_SIZE (offsetof (struct elks_aout_header, a_trsize))
 
 #define A_MAGIC0	((uint8_t) 0x01)
 #define A_MAGIC1	((uint8_t) 0x03)
@@ -60,10 +75,15 @@ struct elks_aout_header
 					    is set). */
 #define A_SEP		((uint8_t) 0x20) /* Separate instruction and data
 					    address spaces.  */
-/* These flags are reserved for ELKS use. */
-#define A_EXEC_NEW	((uint8_t) 0x18) /* Executable with ELKS-specific
-					    header fields.  (0x08 was old
-					    Minix A_IMG flag.)  */
+
+/* Relocation format. */
+struct elks_aout_reloc
+{
+  uint8_t r_vaddr[4];			/* Address of place within section. */
+  uint8_t r_symndx[2];			/* Index into symbol table, or
+					   (negative) segment number. */
+  uint8_t r_type[2];			/* Relocation type. */
+};
 
 static bool
 elks_mkobject (bfd *abfd)
@@ -73,12 +93,23 @@ elks_mkobject (bfd *abfd)
   return aout_32_mkobject (abfd);
 }
 
+static bool
+all_zeros_p (const uint8_t *array, size_t size)
+{
+  while (size-- != 0)
+    if (array[size] != 0)
+      return false;
+
+  return true;
+}
+
 static bfd_cleanup
 elks_object_p (bfd *abfd)
 {
   struct elks_aout_header hdr;
   asection *section;
-  uint32_t hdr_len, text_size, data_size, bss_size;
+  uint32_t hdr_len, a_text, a_data, a_bss, a_syms, a_trsize = 0, a_drsize = 0,
+	   a_tbase = 0, a_dbase = 0, a_ftext = 0, a_ftrsize = 0;
 
   if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0
       || bfd_bread (&hdr, (bfd_size_type) sizeof (hdr), abfd) < sizeof (hdr))
@@ -93,7 +124,8 @@ elks_object_p (bfd *abfd)
   hdr_len = hdr.a_hdrlen;
   if (hdr.a_magic[0] != A_MAGIC0 || hdr.a_magic[1] != A_MAGIC1
       || hdr.a_unused != 0 || H_GET_16 (abfd, hdr.a_version) != 0
-      || hdr.a_cpu != A_I8086 || hdr_len != sizeof (hdr))
+      || hdr.a_cpu != A_I8086 || hdr_len != sizeof (hdr)
+      || ! all_zeros_p (hdr.a_unused2, sizeof hdr.a_unused2))
     {
       bfd_set_error (bfd_error_wrong_format);
       return NULL;
@@ -110,153 +142,295 @@ elks_object_p (bfd *abfd)
       return NULL;
     }
 
+  /* Check that the recorded header size makes sense.  Also read any extra
+     fields, if available, beyond the minimum. */
+  switch (hdr_len)
+    {
+    case sizeof (hdr):
+      a_ftext = H_GET_16 (abfd, hdr.a_ftext);
+      a_ftrsize = H_GET_16 (abfd, hdr.a_ftrsize);
+      /* fall through */
+
+    case offsetof (struct elks_aout_header, a_ftext):
+      a_tbase = H_GET_32 (abfd, hdr.a_tbase);
+      a_dbase = H_GET_32 (abfd, hdr.a_tbase);
+      /* fall through */
+
+    case offsetof (struct elks_aout_header, a_tbase):
+      a_trsize = H_GET_32 (abfd, hdr.a_trsize);
+      a_drsize = H_GET_32 (abfd, hdr.a_drsize);
+      /* fall through */
+
+    case ELKS_MIN_HDR_SIZE:
+      break;
+
+    default:
+      bfd_set_error (bfd_error_wrong_format);
+      return NULL;
+    }
+
+  a_text = H_GET_32 (abfd, hdr.a_text);
+  a_data = H_GET_32 (abfd, hdr.a_data);
+  a_bss = H_GET_32 (abfd, hdr.a_bss);
+  a_syms = H_GET_32 (abfd, hdr.a_syms);
+
+  if (a_trsize != 0 || a_drsize != 0)
+    {
+      bfd_set_error (bfd_error_wrong_format);
+      return NULL;
+    }
+
   if (!elks_mkobject (abfd))
     return NULL;
 
   abfd->flags = EXEC_P;
-  abfd->start_address = H_GET_32 (abfd, hdr.a_entry);
+  adata (abfd).exec_bytes_size = hdr_len;
+  exec_hdr (abfd)->a_text = a_text;
+  exec_hdr (abfd)->ov_siz[0] = a_ftext;
+  exec_hdr (abfd)->ov_siz[1] = a_ftrsize;
+  exec_hdr (abfd)->a_data = a_data;
+  exec_hdr (abfd)->a_bss = a_bss;
+  exec_hdr (abfd)->a_syms = a_syms;
+  exec_hdr (abfd)->a_entry = abfd->start_address
+			   = H_GET_32 (abfd, hdr.a_entry);
+  exec_hdr (abfd)->a_trsize = a_trsize;
+  exec_hdr (abfd)->a_drsize = a_drsize;
+  exec_hdr (abfd)->a_tload = a_tbase;
+  exec_hdr (abfd)->a_dload = a_dbase;
 
-  section = bfd_make_section (abfd, ".text");
-  if (section == NULL)
-    return NULL;
-
-  section->flags = (SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_HAS_CONTENTS);
-  section->filepos = hdr_len;
-  text_size = H_GET_32 (abfd, hdr.a_text);
-
-  if (bfd_seek (abfd, (file_ptr) (section->filepos + text_size), SEEK_SET)
-      != 0)
+  if (a_text)
     {
-      if (bfd_get_error () != bfd_error_system_call)
-	bfd_set_error (bfd_error_wrong_format);
-      return NULL;
+      section = bfd_make_section (abfd, ".text");
+      if (section == NULL)
+	return NULL;
+
+      section->flags = (SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_HAS_CONTENTS);
+      section->filepos = hdr_len;
+
+      if (bfd_seek (abfd, (file_ptr) (section->filepos + a_text), SEEK_SET)
+	  != 0)
+	{
+	  if (bfd_get_error () != bfd_error_system_call)
+	    bfd_set_error (bfd_error_wrong_format);
+	  return NULL;
+	}
+
+      bfd_set_section_vma (section, a_tbase);
+      bfd_set_section_size (section, a_text);
+      section->alignment_power = 0;
     }
 
-  bfd_set_section_vma (section, 0);
-  bfd_set_section_size (section, text_size);
-  section->alignment_power = 0;
-
-  section = bfd_make_section (abfd, ".data");
-  if (section == NULL)
-    return NULL;
-
-  section->flags = (SEC_ALLOC | SEC_LOAD | SEC_DATA | SEC_HAS_CONTENTS);
-  section->filepos = hdr_len + text_size;
-  data_size = H_GET_32 (abfd, hdr.a_data);
-
-  if (bfd_seek (abfd, (file_ptr) (section->filepos + text_size + data_size),
-		SEEK_SET) != 0)
+  if (a_ftext)
     {
-      if (bfd_get_error () != bfd_error_system_call)
-	bfd_set_error (bfd_error_wrong_format);
-      return NULL;
+      section = bfd_make_section (abfd, ".fartext");
+      if (section == NULL)
+	return NULL;
+
+      section->flags = (SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_HAS_CONTENTS);
+      section->filepos = hdr_len + a_text;
+
+      if (bfd_seek (abfd, (file_ptr) (section->filepos + a_text + a_ftext),
+		    SEEK_SET) != 0)
+	{
+	  if (bfd_get_error () != bfd_error_system_call)
+	    bfd_set_error (bfd_error_wrong_format);
+	  return NULL;
+	}
+
+      bfd_set_section_vma (section, 0);
+      bfd_set_section_lma (section, a_text);
+      bfd_set_section_size (section, a_ftext);
+      section->alignment_power = 0;
     }
 
-  bfd_set_section_vma (section, 0);
-  bfd_set_section_lma (section, text_size);
-  bfd_set_section_size (section, data_size);
-  section->alignment_power = 0;
+  if (a_data)
+    {
+      section = bfd_make_section (abfd, ".data");
+      if (section == NULL)
+	return NULL;
 
-  section = bfd_make_section (abfd, ".bss");
-  if (section == NULL)
-    return NULL;
+      section->flags = (SEC_ALLOC | SEC_LOAD | SEC_DATA | SEC_HAS_CONTENTS);
+      section->filepos = hdr_len + a_text + a_ftext;
 
-  section->flags = (SEC_ALLOC | SEC_DATA);
-  bss_size = H_GET_32 (abfd, hdr.a_bss);
-  bfd_set_section_vma (section, data_size);
-  bfd_set_section_lma (section, text_size + data_size);
-  bfd_set_section_size (section, bss_size);
-  section->alignment_power = 0;
+      if (bfd_seek (abfd, (file_ptr) (section->filepos + a_text + a_ftext
+				      + a_data), SEEK_SET) != 0)
+	{
+	  if (bfd_get_error () != bfd_error_system_call)
+	    bfd_set_error (bfd_error_wrong_format);
+	  return NULL;
+	}
+
+      bfd_set_section_vma (section, a_dbase);
+      bfd_set_section_lma (section, a_text);
+      bfd_set_section_size (section, a_data);
+      section->alignment_power = 0;
+    }
+
+  if (a_bss)
+    {
+      section = bfd_make_section (abfd, ".bss");
+      if (section == NULL)
+	return NULL;
+
+      section->flags = (SEC_ALLOC | SEC_DATA);
+      bfd_set_section_vma (section, a_dbase + a_data);
+      bfd_set_section_lma (section, a_text + a_data);
+      bfd_set_section_size (section, a_bss);
+      section->alignment_power = 0;
+    }
 
   return _bfd_no_cleanup;
 }
 
 static int
-elks_sizeof_headers (bfd *abfd ATTRIBUTE_UNUSED,
-		      struct bfd_link_info *info ATTRIBUTE_UNUSED)
+elks_sizeof_headers (bfd *abfd, struct bfd_link_info *info ATTRIBUTE_UNUSED)
 {
-  return 0;
+  return adata (abfd).exec_bytes_size;
+}
+
+static bool
+elks_new_section_hook (bfd *abfd, asection *newsect)
+{
+  if (bfd_get_format (abfd) == bfd_object)
+    {
+      /* Accept .fartext and .fartext.* as far text section names. */
+      if (obj_ovsec (abfd, 0) == NULL
+	  && strncmp (newsect->name, ".fartext", 8) == 0
+	  && (newsect->name[8] == 0 || newsect->name[8] == '.'))
+	obj_ovsec (abfd, 0) = newsect;
+    }
+
+  return aout_32_new_section_hook (abfd, newsect);
+}
+
+static void
+elks_prime_header (bfd *abfd)
+{
+  asection *sec;
+  bfd_vma a_text = 0, a_data = 0, a_bss = 0, a_ftext = 0,
+	  a_trsize = 0, a_drsize = 0, a_ftrsize = 0, a_tbase = 0, a_dbase = 0;
+  bfd_size_type hdr_len;
+
+  sec = obj_textsec (abfd);
+  if (sec)
+    {
+      bfd_vma vma = bfd_section_vma (sec),
+	      lma = bfd_section_lma (sec);
+      a_text = bfd_section_size (sec);
+      a_trsize = sec->reloc_count * sizeof (struct elks_aout_reloc);
+      /* XXX */
+      if ((lma & (bfd_vma) 0xffff) == vma)
+	a_tbase = vma;
+      else
+	a_tbase = lma;
+    }
+
+  sec = obj_datasec (abfd);
+  if (sec)
+    {
+      bfd_vma vma = bfd_section_vma (sec),
+	      lma = bfd_section_lma (sec);
+      a_data = bfd_section_size (sec);
+      a_drsize = sec->reloc_count * sizeof (struct elks_aout_reloc);
+      /* XXX */
+      if ((lma & (bfd_vma) 0xffff) == vma)
+	a_dbase = vma;
+      else
+	a_dbase = lma;
+    }
+
+  sec = obj_bsssec (abfd);
+  if (sec)
+    {
+      a_bss = bfd_section_size (sec);
+      /* There may be some padding after the initialized data segment.  Take
+	 this into account. */
+      a_bss += bfd_section_vma (sec);
+      a_bss -= a_dbase + a_data;
+    }
+
+  sec = obj_ovsec (abfd, 0);
+  if (sec)
+    {
+      a_ftext = bfd_section_size (sec);
+      a_ftrsize = sec->reloc_count * sizeof (struct elks_aout_reloc);
+    }
+
+  if (a_ftext || a_ftrsize)
+    hdr_len = sizeof (struct elks_aout_header);
+  else if (a_tbase || a_dbase)
+    hdr_len = offsetof (struct elks_aout_header, a_ftext);
+  else if (a_trsize || a_drsize)
+    hdr_len = offsetof (struct elks_aout_header, a_tbase);
+  else
+    hdr_len = ELKS_MIN_HDR_SIZE;
+
+  adata (abfd).exec_bytes_size = hdr_len;
+  exec_hdr (abfd)->a_text = a_text;
+  exec_hdr (abfd)->ov_siz[0] = a_ftext;
+  exec_hdr (abfd)->ov_siz[1] = a_ftrsize;
+  exec_hdr (abfd)->a_data = a_data;
+  exec_hdr (abfd)->a_bss = a_bss;
+  exec_hdr (abfd)->a_syms = 0;		/* XXX */
+  exec_hdr (abfd)->a_entry = abfd->start_address;
+  exec_hdr (abfd)->a_trsize = a_trsize;
+  exec_hdr (abfd)->a_drsize = a_drsize;
+  exec_hdr (abfd)->a_tload = a_tbase;
+  exec_hdr (abfd)->a_dload = a_dbase;
+}
+
+static bool
+elks_bfd_final_link (bfd *abfd, struct bfd_link_info *info)
+{
+  elks_prime_header (abfd);
+  return _bfd_generic_final_link (abfd, info);
 }
 
 static bool
 elks_write_object_contents (bfd *abfd)
 {
   struct elks_aout_header hdr;
-  bfd_vma text_begin = (bfd_vma) 0 - 1, text_end = 0,
-	  data_begin = (bfd_vma) 0 - 1, data_end = 0,
-	  bss_end = 0;
-  asection *sec;
+  bfd_size_type hdr_len;
 
-  /* Find the size of the text, data, and BSS sections. */
-  for (sec = abfd->sections; sec != (asection *) NULL; sec = sec->next)
-    {
-      flagword flags = bfd_section_flags (sec);
-      bfd_vma sec_vma, sec_end_vma;
-
-      if ((flags & SEC_ALLOC) == 0)
-	continue;
-
-      sec_vma = bfd_section_vma (sec);
-      sec_end_vma = sec_vma + sec->size;
-
-      if ((flags & SEC_CODE) != 0)
-	{
-	  if (sec_vma < text_begin)
-	    text_begin = sec_vma;
-	  if (sec_end_vma > text_end)
-	    text_end = sec_end_vma;
-	}
-      else if ((flags & SEC_LOAD) != 0)
-	{
-	  if (sec_vma < data_begin)
-	    data_begin = sec_vma;
-	  if (sec_end_vma > data_end)
-	    data_end = sec_end_vma;
-	}
-      else
-	{
-	  if (sec_end_vma > bss_end)
-	    bss_end = sec_end_vma;
-	}
-    }
-
-  if (text_begin > text_end)
-    text_begin = text_end;
-
-  if (data_begin > data_end)
-    data_begin = data_end;
-
-  /* Make sure the VMAs are sane. */
-  if (text_begin != 0 || data_begin != 0 || bss_end < data_end)
-    {
-      bfd_set_error(bfd_error_nonrepresentable_section);
-      return false;
-    }
-
- if (text_end > (uint32_t) 0 - 1 || data_end > (uint32_t) 0 - 1
-     || bss_end > (uint32_t) 0 - 1)
-    {
-      bfd_set_error(bfd_error_file_too_big);
-      return false;
-    }
+  /* Get the size of the header we actually need to write.  This should have
+     been set by elks_bfd_final_link (, ) above. */
+  hdr_len = adata (abfd).exec_bytes_size;
 
   /* Fill in the header. */
+  memset (&hdr, 0, hdr_len);
   hdr.a_magic[0] = A_MAGIC0;
   hdr.a_magic[1] = A_MAGIC1;
   hdr.a_flags = A_EXEC | A_SEP;
   hdr.a_cpu = A_I8086;
-  hdr.a_hdrlen = sizeof (hdr);
+  hdr.a_hdrlen = hdr_len;
   hdr.a_unused = 0;
   H_PUT_16 (abfd, 0, hdr.a_version);
-  H_PUT_32 (abfd, text_end, hdr.a_text);
-  H_PUT_32 (abfd, data_end, hdr.a_data);
-  H_PUT_32 (abfd, bss_end - data_end, hdr.a_bss);
-  H_PUT_32 (abfd, abfd->start_address, hdr.a_entry);
+  H_PUT_32 (abfd, exec_hdr (abfd)->a_text, hdr.a_text);
+  H_PUT_32 (abfd, exec_hdr (abfd)->a_data, hdr.a_data);
+  H_PUT_32 (abfd, exec_hdr (abfd)->a_bss, hdr.a_bss);
+  H_PUT_32 (abfd, exec_hdr (abfd)->a_entry, hdr.a_entry);
   H_PUT_32 (abfd, 0, hdr.a_total);	/* XXX */
-  H_PUT_32 (abfd, 0, hdr.a_syms);	/* XXX */
+  H_PUT_32 (abfd, exec_hdr (abfd)->a_syms, hdr.a_syms);
 
+  if (hdr_len > ELKS_MIN_HDR_SIZE)
+    {
+      H_PUT_32 (abfd, exec_hdr (abfd)->a_trsize, hdr.a_trsize);
+      H_PUT_32 (abfd, exec_hdr (abfd)->a_drsize, hdr.a_drsize);
+      if (hdr_len > offsetof (struct elks_aout_header, a_tbase))
+	{
+	  H_PUT_32 (abfd, exec_hdr (abfd)->a_tload, hdr.a_tbase);
+	  H_PUT_32 (abfd, exec_hdr (abfd)->a_dload, hdr.a_dbase);
+	  if (hdr_len > offsetof (struct elks_aout_header, a_ftext))
+	    {
+	      H_PUT_16 (abfd, exec_hdr (abfd)->ov_siz[0], hdr.a_ftext);
+	      H_PUT_16 (abfd, exec_hdr (abfd)->ov_siz[1], hdr.a_ftrsize);
+	    }
+	}
+    }
+
+  /* Write out the header. */
   if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0
-      || bfd_bwrite (&hdr, (bfd_size_type) sizeof(hdr), abfd) != sizeof(hdr))
+      || bfd_bwrite (&hdr, hdr_len, abfd) != hdr_len)
     return false;
 
   return true;
@@ -269,24 +443,42 @@ elks_set_section_contents (bfd *abfd,
 			    file_ptr offset,
 			    bfd_size_type count)
 {
+  bfd_size_type hdr_len;
 
-  if (count == 0)
-    return true;
+  if (! abfd->output_has_begun)
+    elks_prime_header (abfd);
 
-  section->filepos = sizeof (struct elks_aout_header)
-		     + bfd_section_lma (section);
+  hdr_len = adata (abfd).exec_bytes_size;
 
-  if (bfd_section_flags (section) & SEC_LOAD)
+  if (section == obj_textsec (abfd))
+    section->filepos = hdr_len;
+  else if (section == obj_ovsec (abfd, 0))
+    section->filepos = hdr_len + exec_hdr (abfd)->a_text;
+  else if (section == obj_datasec (abfd))
+    section->filepos = hdr_len + exec_hdr (abfd)->a_text
+		       + exec_hdr (abfd)->ov_siz[0];
+  else if (section == obj_bsssec (abfd))
     {
-      if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
-	  || bfd_bwrite (location, count, abfd) != count)
-	return false;
+      bfd_set_error (bfd_error_no_contents);
+      return false;
     }
+  else
+    {
+      _bfd_error_handler
+	   /* xgettext:c_format */
+	(_("%pB: can not represent section `%pA' in ELKS object file format"),
+	 abfd, section);
+      bfd_set_error (bfd_error_nonrepresentable_section);
+      return false;
+    }
+
+  if (count != 0)
+    if (bfd_seek (abfd, section->filepos + offset, SEEK_SET) != 0
+	|| bfd_bwrite (location, count, abfd) != count)
+      return false;
 
   return true;
 }
-
-
 
 #define elks_make_empty_symbol aout_32_make_empty_symbol
 #define elks_bfd_reloc_type_lookup aout_32_reloc_type_lookup
@@ -294,7 +486,6 @@ elks_set_section_contents (bfd *abfd,
 
 #define	elks_close_and_cleanup _bfd_generic_close_and_cleanup
 #define elks_bfd_free_cached_info _bfd_generic_bfd_free_cached_info
-#define elks_new_section_hook _bfd_generic_new_section_hook
 #define elks_get_section_contents _bfd_generic_get_section_contents
 #define elks_get_section_contents_in_window \
   _bfd_generic_get_section_contents_in_window
@@ -316,10 +507,10 @@ elks_set_section_contents (bfd *abfd,
 #define elks_bfd_link_just_syms _bfd_generic_link_just_syms
 #define elks_bfd_copy_link_hash_symbol_type \
   _bfd_generic_copy_link_hash_symbol_type
-#define elks_bfd_final_link _bfd_generic_final_link
 #define elks_bfd_link_split_section _bfd_generic_link_split_section
 #define elks_set_arch_mach _bfd_generic_set_arch_mach
 #define elks_bfd_link_check_relocs _bfd_generic_link_check_relocs
+#define elks_bfd_group_name bfd_generic_group_name
 
 #define elks_get_symtab_upper_bound _bfd_nosymbols_get_symtab_upper_bound
 #define elks_canonicalize_symtab _bfd_nosymbols_canonicalize_symtab
@@ -396,5 +587,3 @@ const bfd_target i386_elks_vec =
 
     NULL
   };
-
-

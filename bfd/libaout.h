@@ -233,6 +233,9 @@ struct internal_exec
   unsigned char a_dalign;	/* Alignment of data segment.  */
   unsigned char a_balign;	/* Alignment of bss segment.  */
   char a_relaxable;		/* Enough info for linker relax.  */
+  /* Added mainly for ELKS; might be useful for PDP-11  -- tkchia 20200506 */
+#define NOVL 15
+  bfd_vma ov_siz[NOVL];		/* Overlay sizes. */
 };
 
 /* Magic number is written
@@ -421,6 +424,9 @@ struct aoutdata
      table, used when linking on SunOS.  This is indexed by the symbol
      index.  */
   bfd_vma *local_got_offsets;
+
+  /* Mainly for ELKS.  -- tkchia */
+  asection *ovsec[NOVL];
 };
 
 struct  aout_data_struct
@@ -435,6 +441,7 @@ struct  aout_data_struct
 #define	obj_textsec(bfd)		   (adata (bfd).textsec)
 #define	obj_datasec(bfd)		   (adata (bfd).datasec)
 #define	obj_bsssec(bfd)			   (adata (bfd).bsssec)
+#define obj_ovsec(bfd, i)		   (adata (bfd).ovsec[i])
 #define	obj_sym_filepos(bfd)		   (adata (bfd).sym_filepos)
 #define	obj_str_filepos(bfd)		   (adata (bfd).str_filepos)
 #define	obj_reloc_entry_size(bfd)	   (adata (bfd).reloc_entry_size)
