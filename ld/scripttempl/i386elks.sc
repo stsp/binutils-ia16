@@ -26,6 +26,7 @@ SECTIONS
   {
     CREATE_OBJECT_SYMBOLS
     *(.text .text.*)
+    ${RELOCATING+. = ALIGN (16);}
     ${RELOCATING+etext = .;}
     ${RELOCATING+_etext = .;}
     ${RELOCATING+__etext = .;}
@@ -33,15 +34,17 @@ SECTIONS
   .fartext ${RELOCATING+0} : ${RELOCATING+AT(0x10000)}
   {
     *(.fartext .fartext.*)
+    ${RELOCATING+. = ALIGN (16);}
   }
   .data ${RELOCATING+0} : ${RELOCATING+AT(0x20000)}
   {
     *(.rodata .rodata.*)
     *(.data .data.*)
     ${CONSTRUCTING+CONSTRUCTORS}
-    ${RELOCATING+edata  =  .;}
-    ${RELOCATING+_edata  =  .;}
-    ${RELOCATING+__edata  =  .;}
+    ${RELOCATING+. = ALIGN (16);}
+    ${RELOCATING+edata = .;}
+    ${RELOCATING+_edata = .;}
+    ${RELOCATING+__edata = .;}
   }
   .bss :
   {
@@ -49,9 +52,10 @@ SECTIONS
    ${RELOCATING+ __bss_start = .};
    *(.bss .bss.*)
    *(COMMON)
-   ${RELOCATING+end = ALIGN(4) };
-   ${RELOCATING+_end = ALIGN(4) };
-   ${RELOCATING+__end = ALIGN(4) };
+    ${RELOCATING+. = ALIGN (16);}
+   ${RELOCATING+end = . };
+   ${RELOCATING+_end = . };
+   ${RELOCATING+__end = . };
   }
 }
 EOF

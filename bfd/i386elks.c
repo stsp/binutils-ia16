@@ -99,12 +99,12 @@ struct elks_aout_reloc
 #define R_SEGWORD	80
 
 /* Special symbol indices. */
-#define S_ABS		((uint16_t) 0 - 1)
-#define S_TEXT		((uint16_t) 0 - 2)
-#define S_DATA		((uint16_t) 0 - 3)
-#define S_BSS		((uint16_t) 0 - 4)
+#define S_ABS		((uint16_t) -1U)
+#define S_TEXT		((uint16_t) -2U)
+#define S_DATA		((uint16_t) -3U)
+#define S_BSS		((uint16_t) -4U)
 /* Not yet implemented in ELKS. */
-#define S_FTEXT		((uint16_t) 0 - 5)
+#define S_FTEXT		((uint16_t) -5U)
 
 static bool
 elks_mkobject (bfd *abfd)
@@ -195,16 +195,13 @@ elks_object_p (bfd *abfd)
   a_bss = H_GET_32 (abfd, hdr.a_bss);
   a_syms = H_GET_32 (abfd, hdr.a_syms);
 
-  if (a_trsize != 0 || a_drsize != 0)
-    {
-      bfd_set_error (bfd_error_wrong_format);
-      return NULL;
-    }
-
   if (!elks_mkobject (abfd))
     return NULL;
 
   abfd->flags = EXEC_P;
+  if (a_trsize || a_drsize || a_ftrsize)
+    abfd->flags |= HAS_RELOC;
+
   adata (abfd).exec_bytes_size = hdr_len;
   exec_hdr (abfd)->a_text = a_text;
   exec_hdr (abfd)->ov_siz[0] = a_ftext;
@@ -226,6 +223,8 @@ elks_object_p (bfd *abfd)
 	return NULL;
 
       section->flags = (SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_HAS_CONTENTS);
+      if (a_trsize)
+	section->flags |= SEC_RELOC;
       section->filepos = hdr_len;
 
       if (bfd_seek (abfd, (file_ptr) (section->filepos + a_text), SEEK_SET)
@@ -248,6 +247,8 @@ elks_object_p (bfd *abfd)
 	return NULL;
 
       section->flags = (SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_HAS_CONTENTS);
+      if (a_ftrsize)
+	section->flags |= SEC_RELOC;
       section->filepos = hdr_len + a_text;
 
       if (bfd_seek (abfd, (file_ptr) (section->filepos + a_text + a_ftext),
@@ -271,6 +272,8 @@ elks_object_p (bfd *abfd)
 	return NULL;
 
       section->flags = (SEC_ALLOC | SEC_LOAD | SEC_DATA | SEC_HAS_CONTENTS);
+      if (a_drsize)
+	section->flags |= SEC_RELOC;
       section->filepos = hdr_len + a_text + a_ftext;
 
       if (bfd_seek (abfd, (file_ptr) (section->filepos + a_text + a_ftext
@@ -596,6 +599,172 @@ elks_set_section_contents (bfd *abfd,
   return true;
 }
 
+static bfd_reloc_status_type
+bfd_elks_segword_reloc (bfd *abfd ATTRIBUTE_UNUSED,
+			arelent *reloc_entry ATTRIBUTE_UNUSED,
+			asymbol *symbol ATTRIBUTE_UNUSED,
+			void *data ATTRIBUTE_UNUSED,
+			asection *input_section ATTRIBUTE_UNUSED,
+			bfd *output_bfd ATTRIBUTE_UNUSED,
+			char **error_message ATTRIBUTE_UNUSED)
+{
+  /* XXX */
+  abort ();
+  return bfd_reloc_other;
+}
+
+static reloc_howto_type howto_segword =
+  HOWTO (R_SEGWORD, 0, 1, 16, FALSE, 0, complain_overflow_signed,
+	 bfd_elks_segword_reloc, "R_SEGWORD", TRUE, 0xffff, 0xffff, FALSE);
+
+static bfd_boolean
+elks_slurp_reloc_table (bfd *abfd, asection *sec)
+{
+  file_ptr reloc_areas_start, pos;
+  bfd_vma a_trsize, rsize;
+  unsigned count, i;
+  struct elks_aout_reloc aout_rel;
+  arelent *reloc_cache;
+
+  if (sec->relocation)
+    return TRUE;
+
+  reloc_areas_start = (file_ptr) adata (abfd).exec_bytes_size
+		      + exec_hdr (abfd)->a_text + exec_hdr (abfd)->ov_siz[0]
+		      + exec_hdr (abfd)->a_data;
+  a_trsize = exec_hdr (abfd)->a_trsize;
+
+  if (sec == obj_textsec (abfd))
+    {
+      pos = reloc_areas_start;
+      rsize = a_trsize;
+    }
+  else if (sec == obj_datasec (abfd))
+    {
+      pos = reloc_areas_start + a_trsize;
+      rsize = exec_hdr (abfd)->a_drsize;
+    }
+  else if (sec == obj_ovsec (abfd, 0))
+    {
+      pos = reloc_areas_start + a_trsize + exec_hdr (abfd)->a_drsize;
+      rsize = exec_hdr (abfd)->ov_siz[1];
+    }
+  else
+    {
+      bfd_set_error (bfd_error_invalid_operation);
+      return FALSE;
+    }
+
+  if (bfd_seek (abfd, pos, SEEK_SET) != 0)
+    return FALSE;
+
+  count = rsize / sizeof (struct elks_aout_reloc);
+  if (! count)
+    {
+      sec->relocation = NULL;
+      sec->reloc_count = 0;
+      return TRUE;
+    }
+
+  reloc_cache = bfd_zmalloc2 (count, sizeof (arelent));
+  if (! reloc_cache)
+    return FALSE;
+
+  for (i = 0; i < count; ++i)
+    {
+      unsigned rtype, sym_ndx;
+      asymbol **sym_ptr_ptr;
+      reloc_howto_type *howto;
+
+      if (bfd_bread (&aout_rel, sizeof (aout_rel), abfd) != sizeof (aout_rel))
+	{
+	  free (reloc_cache);
+	  return FALSE;
+	}
+
+      rtype = H_GET_16 (abfd, aout_rel.r_type);
+      switch (rtype)
+	{
+	case R_SEGWORD:
+	  howto = &howto_segword;
+	  break;
+
+	default:
+	  _bfd_error_handler
+	     /* xgettext:c_format */
+	    (_("%pB: unsupported relocation type %#x in section `%pA'"),
+	     abfd, (unsigned) rtype, sec);
+	  bfd_set_error (bfd_error_invalid_operation);
+	  free (reloc_cache);
+	  return FALSE;
+	}
+
+      sym_ndx = H_GET_16 (abfd, aout_rel.r_symndx);
+      switch (sym_ndx)
+	{
+	case S_TEXT:
+	  sym_ptr_ptr = obj_textsec (abfd)->symbol_ptr_ptr;
+	  break;
+
+	case S_FTEXT:
+	  sym_ptr_ptr = obj_ovsec (abfd, 0)->symbol_ptr_ptr;
+	  break;
+
+	case S_DATA:
+	  sym_ptr_ptr = obj_datasec (abfd)->symbol_ptr_ptr;
+	  break;
+
+	case S_BSS:
+	  sym_ptr_ptr = obj_bsssec (abfd)->symbol_ptr_ptr;
+	  break;
+
+	default:
+	  _bfd_error_handler
+	     /* xgettext:c_format */
+	    (_("%pB: unsupported symbol index %#x in section `%pA'"),
+	     abfd, (unsigned) sym_ndx, sec);
+	  bfd_set_error (bfd_error_invalid_operation);
+	  free (reloc_cache);
+	  return FALSE;
+	}
+
+      reloc_cache[i].sym_ptr_ptr = sym_ptr_ptr;
+      reloc_cache[i].address = H_GET_32 (abfd, aout_rel.r_vaddr);
+      reloc_cache[i].addend = 0;
+      reloc_cache[i].howto = howto;
+    }
+
+  sec->relocation = reloc_cache;
+  sec->reloc_count = count;
+  return TRUE;
+}
+
+static long
+elks_get_reloc_upper_bound (bfd *abfd, asection *sec)
+{
+  if (! elks_slurp_reloc_table (abfd, sec))
+    return -1L;
+
+  return (sec->reloc_count + 1) * sizeof (arelent *);
+}
+
+static long
+elks_canonicalize_reloc (bfd *abfd, asection *sec, arelent **loc,
+			 asymbol **syms ATTRIBUTE_UNUSED)
+{
+  unsigned count, i;
+
+  if (! elks_slurp_reloc_table (abfd, sec))
+    return -1L;
+
+  count = sec->reloc_count;
+  for (i = 0; i < count; ++i)
+    loc[i] = &sec->relocation[i];
+  loc[count] = NULL;
+
+  return count;
+}
+
 #define elks_make_empty_symbol aout_32_make_empty_symbol
 #define elks_bfd_reloc_type_lookup aout_32_reloc_type_lookup
 #define elks_bfd_reloc_name_lookup aout_32_reloc_name_lookup
@@ -644,9 +813,7 @@ elks_set_section_contents (bfd *abfd,
 #define elks_read_minisymbols _bfd_nosymbols_read_minisymbols
 #define elks_minisymbol_to_symbol _bfd_nosymbols_minisymbol_to_symbol
 
-#define elks_canonicalize_reloc _bfd_norelocs_canonicalize_reloc
 #define elks_set_reloc _bfd_generic_set_reloc
-#define elks_get_reloc_upper_bound _bfd_norelocs_get_reloc_upper_bound
 #define elks_32_bfd_link_split_section  _bfd_generic_link_split_section
 
 const bfd_target i386_elks_vec =
