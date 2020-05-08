@@ -85,6 +85,27 @@ struct elks_aout_reloc
   uint8_t r_type[2];			/* Relocation type. */
 };
 
+/* Relocation types (?).  Not yet implemented in ELKS. */
+#define R_ABBS		0
+#define R_RELLBYTE	2
+#define R_PCRBYTE	3
+#define R_RELWORD	4
+#define R_PCRWORD	5
+#define R_RELLONG	6
+#define R_PCRLONG	7
+#define R_REL3BYTE	8
+#define R_KBRANCHE	9
+/* New IA-16 segment relocation type. */
+#define R_SEGWORD	80
+
+/* Special symbol indices. */
+#define S_ABS		((uint16_t) 0 - 1)
+#define S_TEXT		((uint16_t) 0 - 2)
+#define S_DATA		((uint16_t) 0 - 3)
+#define S_BSS		((uint16_t) 0 - 4)
+/* Not yet implemented in ELKS. */
+#define S_FTEXT		((uint16_t) 0 - 5)
+
 static bool
 elks_mkobject (bfd *abfd)
 {
@@ -383,7 +404,79 @@ static bool
 elks_bfd_final_link (bfd *abfd, struct bfd_link_info *info)
 {
   elks_prime_header (abfd);
-  return _bfd_generic_final_link (abfd, info);
+  if (! _bfd_generic_final_link (abfd, info))
+    return false;
+
+  elks_prime_header (abfd);
+  return true;
+}
+
+static bool
+elks_squirt_out_relocs (bfd *abfd, asection *sec, file_ptr pos)
+{
+  arelent **orelocation;
+  unsigned i, reloc_count;
+  struct elks_aout_reloc aout_rel;
+
+  if (! sec)
+    return true;
+
+  reloc_count = sec->reloc_count;
+  if (! reloc_count)
+    return true;
+
+  if (bfd_seek (abfd, pos, SEEK_SET) != 0)
+    return false;
+
+  orelocation = sec->orelocation;
+  for (i = 0; i < reloc_count; ++i)
+    {
+      arelent *rel = orelocation[i];
+      asymbol *sym;
+      asection *sym_sec;
+      reloc_howto_type *howto = rel->howto;
+      uint16_t sym_ndx;
+
+      /* XXX this should probably be checked earlier and in a different way. */
+      if (strstr (howto->name, "SEG") == 0
+	  || strstr (howto->name, "RELSEG") != 0)
+	{
+	  _bfd_error_handler
+	     /* xgettext:c_format */
+	    (_("%pB: unsupported `%s' relocation for section `%pA'"),
+	     abfd, howto->name, sec);
+	  bfd_set_error (bfd_error_nonrepresentable_section);
+	  return false;
+	}
+
+      sym = *rel->sym_ptr_ptr;
+      sym_sec = sym->section->output_section;
+
+      if (sym_sec == obj_textsec (abfd))
+	sym_ndx = S_TEXT;
+      else if (sym_sec == obj_datasec (abfd) || sym_sec == obj_bsssec (abfd))
+	sym_ndx = S_DATA;
+      else if (sym_sec == obj_ovsec (abfd, 0))
+	sym_ndx = S_FTEXT;
+      else
+	{
+	  _bfd_error_handler
+	     /* xgettext:c_format */
+	    (_("%pB: cannot emit IA-16 segment relocation to section `%pA'"),
+	     abfd, sym_sec);
+	  bfd_set_error (bfd_error_nonrepresentable_section);
+	  return false;
+	}
+
+      H_PUT_32 (abfd, rel->address, aout_rel.r_vaddr);
+      H_PUT_16 (abfd, sym_ndx, aout_rel.r_symndx);
+      H_PUT_16 (abfd, R_SEGWORD, aout_rel.r_type);
+
+      if (bfd_bwrite (&aout_rel, sizeof (aout_rel), abfd) != sizeof (aout_rel))
+	return false;
+    }
+
+  return true;
 }
 
 static bool
@@ -391,10 +484,17 @@ elks_write_object_contents (bfd *abfd)
 {
   struct elks_aout_header hdr;
   bfd_size_type hdr_len;
+  bfd_vma a_text, a_ftext = 0, a_data, a_bss,
+	  a_trsize = 0, a_drsize = 0, a_ftrsize = 0;
 
   /* Get the size of the header we actually need to write.  This should have
      been set by elks_bfd_final_link (, ) above. */
   hdr_len = adata (abfd).exec_bytes_size;
+
+  /* Get some other parameters. */
+  a_text = exec_hdr (abfd)->a_text;
+  a_data = exec_hdr (abfd)->a_data;
+  a_bss = exec_hdr (abfd)->a_bss;
 
   /* Fill in the header. */
   memset (&hdr, 0, hdr_len);
@@ -405,25 +505,29 @@ elks_write_object_contents (bfd *abfd)
   hdr.a_hdrlen = hdr_len;
   hdr.a_unused = 0;
   H_PUT_16 (abfd, 0, hdr.a_version);
-  H_PUT_32 (abfd, exec_hdr (abfd)->a_text, hdr.a_text);
-  H_PUT_32 (abfd, exec_hdr (abfd)->a_data, hdr.a_data);
-  H_PUT_32 (abfd, exec_hdr (abfd)->a_bss, hdr.a_bss);
+  H_PUT_32 (abfd, a_text, hdr.a_text);
+  H_PUT_32 (abfd, a_data, hdr.a_data);
+  H_PUT_32 (abfd, a_bss, hdr.a_bss);
   H_PUT_32 (abfd, exec_hdr (abfd)->a_entry, hdr.a_entry);
   H_PUT_32 (abfd, 0, hdr.a_total);	/* XXX */
   H_PUT_32 (abfd, exec_hdr (abfd)->a_syms, hdr.a_syms);
 
   if (hdr_len > ELKS_MIN_HDR_SIZE)
     {
-      H_PUT_32 (abfd, exec_hdr (abfd)->a_trsize, hdr.a_trsize);
-      H_PUT_32 (abfd, exec_hdr (abfd)->a_drsize, hdr.a_drsize);
+      a_trsize = exec_hdr (abfd)->a_trsize;
+      a_drsize = exec_hdr (abfd)->a_drsize;
+      H_PUT_32 (abfd, a_trsize, hdr.a_trsize);
+      H_PUT_32 (abfd, a_drsize, hdr.a_drsize);
       if (hdr_len > offsetof (struct elks_aout_header, a_tbase))
 	{
 	  H_PUT_32 (abfd, exec_hdr (abfd)->a_tload, hdr.a_tbase);
 	  H_PUT_32 (abfd, exec_hdr (abfd)->a_dload, hdr.a_dbase);
 	  if (hdr_len > offsetof (struct elks_aout_header, a_ftext))
 	    {
-	      H_PUT_16 (abfd, exec_hdr (abfd)->ov_siz[0], hdr.a_ftext);
-	      H_PUT_16 (abfd, exec_hdr (abfd)->ov_siz[1], hdr.a_ftrsize);
+	      a_ftext = exec_hdr (abfd)->ov_siz[0];
+	      a_ftrsize = exec_hdr (abfd)->ov_siz[1];
+	      H_PUT_16 (abfd, a_ftext, hdr.a_ftext);
+	      H_PUT_16 (abfd, a_ftrsize, hdr.a_ftrsize);
 	    }
 	}
     }
@@ -431,6 +535,18 @@ elks_write_object_contents (bfd *abfd)
   /* Write out the header. */
   if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0
       || bfd_bwrite (&hdr, hdr_len, abfd) != hdr_len)
+    return false;
+
+  /* Also write out relocations (!). */
+  if (! elks_squirt_out_relocs (abfd, obj_textsec (abfd),
+				(file_ptr) hdr_len + a_text + a_ftext
+				+ a_data)
+      || ! elks_squirt_out_relocs (abfd, obj_datasec (abfd),
+				   (file_ptr) hdr_len + a_text + a_ftext
+				   + a_data + a_trsize)
+      || ! elks_squirt_out_relocs (abfd, obj_ovsec (abfd, 0),
+				   (file_ptr) hdr_len + a_text + a_ftext
+				   + a_data + a_trsize + a_drsize))
     return false;
 
   return true;
@@ -529,7 +645,7 @@ elks_set_section_contents (bfd *abfd,
 #define elks_minisymbol_to_symbol _bfd_nosymbols_minisymbol_to_symbol
 
 #define elks_canonicalize_reloc _bfd_norelocs_canonicalize_reloc
-#define elks_set_reloc _bfd_norelocs_set_reloc
+#define elks_set_reloc _bfd_generic_set_reloc
 #define elks_get_reloc_upper_bound _bfd_norelocs_get_reloc_upper_bound
 #define elks_32_bfd_link_split_section  _bfd_generic_link_split_section
 

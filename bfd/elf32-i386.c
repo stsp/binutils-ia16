@@ -282,7 +282,8 @@ unaligned MZ header"), output_bfd);
    This function simply treats R_386_OZSEG16 relocations as if they are
    R_386_OZRELSEG16 relocations.  It is assumed that the elf_i386_msdos_mz
    linker emulation code (e.g.) has created the MZ relocation entry (e.g.)
-   needed to properly implement R_386_OZSEG16.  This is a bit of a hack.
+   needed to properly implement R_386_OZSEG16.  For ELKS a.out output, simply
+   add the relocation to the output section.  This is a bit of a hack.  FIXME.
 								-- tkchia  */
 static bfd_reloc_status_type
 bfd_i386_elf_segment16_reloc (bfd *abfd, arelent *reloc_entry,
@@ -315,6 +316,30 @@ bfd_i386_elf_relseg16_reloc (bfd *abfd, arelent *reloc_entry, asymbol *symbol,
       || reloc_entry->address + 2
 	 > bfd_get_section_limit (abfd, input_section))
     return bfd_reloc_outofrange;
+
+  if (strcmp (input_section->output_section->owner->xvec->name, "elks") == 0)
+    {
+      asection *output_section = input_section->output_section;
+      unsigned reloc_count = output_section->reloc_count;
+      arelent **orelocation, *new_reloc_entry;
+
+      orelocation = bfd_realloc (output_section->orelocation,
+				 (reloc_count + 1) * sizeof (arelent *));
+      if (! orelocation)
+	return bfd_reloc_other;
+
+      output_section->orelocation = orelocation;
+
+      new_reloc_entry = bfd_alloc (abfd, sizeof (arelent));
+      if (! new_reloc_entry)
+	return bfd_reloc_other;
+      *new_reloc_entry = *reloc_entry;
+      new_reloc_entry->address += input_section->output_offset;
+
+      orelocation[reloc_count] = new_reloc_entry;
+      output_section->reloc_count = reloc_count + 1;
+      return bfd_reloc_ok;
+    }
 
   if ((symbol->flags & BSF_WEAK) != 0
       && bfd_is_und_section (symbol->section))
