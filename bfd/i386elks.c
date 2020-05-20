@@ -114,16 +114,6 @@ elks_mkobject (bfd *abfd)
   return aout_32_mkobject (abfd);
 }
 
-static bool
-all_zeros_p (const uint8_t *array, size_t size)
-{
-  while (size-- != 0)
-    if (array[size] != 0)
-      return false;
-
-  return true;
-}
-
 static bfd_cleanup
 elks_object_p (bfd *abfd)
 {
@@ -145,8 +135,7 @@ elks_object_p (bfd *abfd)
   hdr_len = hdr.a_hdrlen;
   if (hdr.a_magic[0] != A_MAGIC0 || hdr.a_magic[1] != A_MAGIC1
       || hdr.a_unused != 0 || H_GET_16 (abfd, hdr.a_version) != 0
-      || hdr.a_cpu != A_I8086 || hdr_len != sizeof (hdr)
-      || ! all_zeros_p (hdr.a_unused2, sizeof hdr.a_unused2))
+      || hdr.a_cpu != A_I8086 || hdr_len != sizeof (hdr))
     {
       bfd_set_error (bfd_error_wrong_format);
       return NULL;
