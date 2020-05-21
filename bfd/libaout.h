@@ -236,6 +236,10 @@ struct internal_exec
   /* Added mainly for ELKS; might be useful for PDP-11  -- tkchia 20200506 */
 #define NOVL 15
   bfd_vma ov_siz[NOVL];		/* Overlay sizes. */
+  /* Added for ELKS  -- tkchia 20200521 */
+  bfd_vma a_total;		/* Total memory to allocate (if separate
+				   I/D, for data segment). */
+  bfd_vma a_minstack;		/* Minimum initial stack size. */
 };
 
 /* Magic number is written
