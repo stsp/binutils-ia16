@@ -237,8 +237,8 @@ struct internal_exec
 #define NOVL 15
   bfd_vma ov_siz[NOVL];		/* Overlay sizes. */
   /* Added for ELKS  -- tkchia 20200521 */
-  bfd_vma a_total;		/* Total memory to allocate (if separate
-				   I/D, for data segment). */
+  bfd_vma a_heap;		/* Maximum heap size (info == 1) or total
+				   data segment memory (info == 0). */
   bfd_vma a_minstack;		/* Minimum initial stack size. */
 };
 

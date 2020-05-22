@@ -39,8 +39,9 @@ struct elks_aout_header
   uint8_t a_data[4];			/* Size of data section in bytes. */
   uint8_t a_bss[4];			/* Size of BSS section in bytes. */
   uint8_t a_entry[4];			/* Entry point. */
-  uint8_t a_total[2];			/* Total memory allocated (if separate
-					   I/D, for data segment). */
+  uint8_t a_heap[2];			/* Maxmimum heap size (a_version == 1)
+					   or total data segment to allocate
+					   (a_version == 0). */
   uint8_t a_minstack[2];		/* Minimum initial stack size. */
   uint8_t a_syms[4];			/* Symbol table size. */
   /* The following fields are optional.  They are specified, but apparently
@@ -120,8 +121,10 @@ elks_object_p (bfd *abfd)
 {
   struct elks_aout_header hdr;
   asection *section;
+  bfd_size_type n_read;
   uint32_t hdr_len, a_text, a_data, a_bss, a_syms, a_trsize = 0, a_drsize = 0,
 	   a_tbase = 0, a_dbase = 0, a_ftext = 0, a_ftrsize = 0;
+  long a_version;
 
   if (bfd_seek (abfd, (file_ptr) 0, SEEK_SET) != 0
       || bfd_bread (&hdr, (bfd_size_type) sizeof (hdr), abfd) < sizeof (hdr))
@@ -134,9 +137,24 @@ elks_object_p (bfd *abfd)
   /* For now, only accept separate I/D executables for the 8086 with simple
      headers. */
   hdr_len = hdr.a_hdrlen;
+  if (n_read < ELKS_MIN_HDR_SIZE || hdr_len > n_read)
+    {
+      if (bfd_get_error () != bfd_error_system_call)
+	bfd_set_error (bfd_error_wrong_format);
+      return NULL;
+    }
+
+  /* For now, only accept separate I/D executables for the 8086, with the
+     a_version field indicating a version 0 or version 1 header. */
   if (hdr.a_magic[0] != A_MAGIC0 || hdr.a_magic[1] != A_MAGIC1
-      || hdr.a_unused != 0 || H_GET_16 (abfd, hdr.a_version) != 0
-      || hdr.a_cpu != A_I8086 || hdr_len != sizeof (hdr))
+      || hdr.a_unused != 0 || hdr.a_cpu != A_I8086)
+    {
+      bfd_set_error (bfd_error_wrong_format);
+      return NULL;
+    }
+
+  a_version = H_GET_16 (abfd, hdr.a_version);
+  if (a_version > 1)
     {
       bfd_set_error (bfd_error_wrong_format);
       return NULL;
@@ -198,11 +216,14 @@ elks_object_p (bfd *abfd)
     abfd->flags |= HAS_RELOC;
 
   adata (abfd).exec_bytes_size = hdr_len;
+  exec_hdr (abfd)->a_info = a_version;
   exec_hdr (abfd)->a_text = a_text;
   exec_hdr (abfd)->ov_siz[0] = a_ftext;
   exec_hdr (abfd)->ov_siz[1] = a_ftrsize;
   exec_hdr (abfd)->a_data = a_data;
   exec_hdr (abfd)->a_bss = a_bss;
+  exec_hdr (abfd)->a_heap = H_GET_16 (abfd, hdr.a_heap);
+  exec_hdr (abfd)->a_minstack = H_GET_16 (abfd, hdr.a_minstack);
   exec_hdr (abfd)->a_syms = a_syms;
   exec_hdr (abfd)->a_entry = abfd->start_address
 			   = H_GET_32 (abfd, hdr.a_entry);
@@ -480,62 +501,84 @@ elks_write_object_contents (bfd *abfd)
 {
   struct elks_aout_header hdr;
   bfd_size_type hdr_len;
+  long a_version;
   bfd_vma a_text, a_ftext = 0, a_data, a_bss,
-	  a_trsize = 0, a_drsize = 0, a_ftrsize = 0, a_total, a_minstack;
+	  a_trsize = 0, a_drsize = 0, a_ftrsize = 0, a_heap, a_minstack;
 
   /* Get the size of the header we actually need to write.  This should have
      been set by elks_bfd_final_link (, ) above. */
   hdr_len = adata (abfd).exec_bytes_size;
 
   /* Get some other parameters. */
+  a_version = exec_hdr (abfd)->a_info;
   a_text = exec_hdr (abfd)->a_text;
   a_data = exec_hdr (abfd)->a_data;
   a_bss = exec_hdr (abfd)->a_bss;
-  a_total = exec_hdr (abfd)->a_total;
+  a_heap = exec_hdr (abfd)->a_heap;
   a_minstack = exec_hdr (abfd)->a_minstack;
 
   /* Do some sanity checking. */
-  if (a_minstack > 0xffff)
+  switch (a_version)
     {
-      _bfd_error_handler
-	   /* xgettext:c_format */
-	(_("%pB: initial stack size (%#lx) is too large"),
-	 abfd, (unsigned long) a_minstack);
-      bfd_set_error (bfd_error_bad_value);
-      return false;
-    }
-
-  if (a_total)
-    {
-      if (a_total > 0xffff)
+    case 0:
+      /* Backward compatibility.  a_heap actually holds the desired total
+	 data segment size. */
+      if (a_heap > 0xffff)
 	{
 	  _bfd_error_handler
 	       /* xgettext:c_format */
 	    (_("%pB: total data segment size (%#lx) is too large"),
-	     abfd, (unsigned long) a_total);
+	     abfd, (unsigned long) a_heap);
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
-      else if (a_total < a_data + a_bss)
+      else if (a_heap != 0 && a_heap < a_data + a_bss)
 	{
 	  _bfd_error_handler
 	       /* xgettext:c_format */
 	    (_("%pB: total data segment size (%#lx) is too small (< %#lx)"),
-	     abfd, (unsigned long) a_total, (unsigned long) (a_data + a_bss));
+	     abfd, (unsigned long) a_heap, (unsigned long) (a_data + a_bss));
+	  bfd_set_error (bfd_error_bad_value);
+	  return false;
+	}
+      break;
+
+    case 1:
+      if (a_minstack > 0xffff)
+	{
+	  _bfd_error_handler
+	       /* xgettext:c_format */
+	    (_("%pB: initial stack size (%#lx) is too large"),
+	     abfd, (unsigned long) a_minstack);
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
 
-      if (a_minstack > a_total - a_data - a_bss)
+      if (a_heap > 0xffff)
 	{
 	  _bfd_error_handler
 	       /* xgettext:c_format */
-	    (_("%pB: initial stack size (%#lx) is too large (> %#lx)"),
-	     abfd, (unsigned long) a_minstack,
-	     (unsigned long) (a_total - a_data - a_bss));
+	    (_("%pB: maximum heap size (%#lx) is too large"),
+	     abfd, (unsigned long) a_heap);
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
+
+      if (a_data + a_bss + a_heap + a_minstack > 0xffff)
+	{
+	  _bfd_error_handler
+	       /* xgettext:c_format */
+	    (_("%pB: total data segment size (%#lx + %#lx + %#lx + %#lx) "
+	       "is too large"), abfd,
+	     (unsigned long) a_data, (unsigned long) a_bss,
+	     (unsigned long) a_heap, (unsigned long) a_minstack);
+	  bfd_set_error (bfd_error_bad_value);
+	  return false;
+	}
+      break;
+
+    default:
+      abort ();
     }
 
   /* Fill in the header. */
@@ -546,13 +589,12 @@ elks_write_object_contents (bfd *abfd)
   hdr.a_cpu = A_I8086;
   hdr.a_hdrlen = hdr_len;
   hdr.a_unused = 0;
-  H_PUT_16 (abfd, 0, hdr.a_version);
+  H_PUT_16 (abfd, a_version, hdr.a_version);
   H_PUT_32 (abfd, a_text, hdr.a_text);
   H_PUT_32 (abfd, a_data, hdr.a_data);
   H_PUT_32 (abfd, a_bss, hdr.a_bss);
   H_PUT_32 (abfd, exec_hdr (abfd)->a_entry, hdr.a_entry);
-
-  H_PUT_16 (abfd, exec_hdr (abfd)->a_total, hdr.a_total);
+  H_PUT_16 (abfd, exec_hdr (abfd)->a_heap, hdr.a_heap);
   H_PUT_16 (abfd, exec_hdr (abfd)->a_minstack, hdr.a_minstack);
   H_PUT_32 (abfd, exec_hdr (abfd)->a_syms, hdr.a_syms);
 
@@ -808,36 +850,34 @@ elks_canonicalize_reloc (bfd *abfd, asection *sec, arelent **loc,
 
 /* Called from the i386elks.em linker emulation code. */
 void
-elks_set_total_and_minstack (bfd *, bfd_vma, bfd_vma, bfd_vma, bfd_vma);
+elks_set_heap_and_minstack (bfd *, bfd_vma, bfd_vma, bfd_vma, bfd_vma);
 
 void
-elks_set_total_and_minstack (bfd *abfd, bfd_vma stack_size, bfd_vma heap_size,
-			     bfd_vma chmem, bfd_vma total_data_size)
+elks_set_heap_and_minstack (bfd *abfd, bfd_vma stack_size, bfd_vma heap_size,
+			    bfd_vma chmem, bfd_vma total_data_size)
 {
-  if (! total_data_size)
+  if (stack_size || heap_size)
+    {
+      /* New-style header. */
+      exec_hdr (abfd)->a_info = 1;
+      exec_hdr (abfd)->a_heap = heap_size;
+      exec_hdr (abfd)->a_minstack = stack_size;
+      return;
+    }
+
+  /* Old-style header. */
+  if (chmem && ! total_data_size)
     {
       bfd_vma a_data, a_bss;
-
       elks_prime_header (abfd);
-
       a_data = exec_hdr (abfd)->a_data;
       a_bss = exec_hdr (abfd)->a_bss;
-
-      if (! chmem)
-	{
-	  if (heap_size)
-	    {
-	      if (! stack_size)
-		stack_size = 0x2000;  /* XXX */
-	      chmem = heap_size + stack_size;
-	    }
-	}
-
       total_data_size = a_data + a_bss + chmem;
     }
 
-  exec_hdr (abfd)->a_total = total_data_size;
-  exec_hdr (abfd)->a_minstack = stack_size;
+  exec_hdr (abfd)->a_info = 0;
+  exec_hdr (abfd)->a_heap = total_data_size;
+  exec_hdr (abfd)->a_minstack = 0;
 }
 
 #define elks_make_empty_symbol aout_32_make_empty_symbol

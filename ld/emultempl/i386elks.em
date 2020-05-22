@@ -64,6 +64,12 @@ gld${EMULATION_NAME}_handle_option (int optc)
       return false;
 
     case OPTION_STACK:
+      if (chmem || total_data_size)
+	{
+	  einfo (_("%F%P: cannot specify \`--chmem'/\`--total-data' "
+		   "together with \`--stack'"));
+	  break;
+	}
       value = strtoul (optarg, &end, 0);
       if (*end)
 	einfo (_("%F%P: invalid stack size \`%s'\n"), optarg);
@@ -72,14 +78,31 @@ gld${EMULATION_NAME}_handle_option (int optc)
       break;
 
     case OPTION_HEAP:
+      if (chmem || total_data_size)
+	{
+	  einfo (_("%F%P: cannot specify \`--chmem'/\`--total-data' "
+		   "together with \`--heap'"));
+	  break;
+	}
       value = strtoul (optarg, &end, 0);
       if (*end)
 	einfo (_("%F%P: invalid heap size \`%s'\n"), optarg);
+      else if (! value)
+	{
+	  einfo (_("%P: warning: using 1 instead of 0 for heap size\n"));
+	  heap_size = 1;
+	}
       else
 	heap_size = value;
       break;
 
     case OPTION_CHMEM:
+      if (total_data_size || stack_size || heap_size)
+	{
+	  einfo (_("%F%P: cannot specify \`--chmem' "
+		   "together with \`--total-data'/\`--stack'/\`--heap'"));
+	  break;
+	}
       value = strtoul (optarg, &end, 0);
       if (*end)
 	einfo (_("%F%P: invalid stack + heap size \`%s'\n"), optarg);
@@ -88,6 +111,12 @@ gld${EMULATION_NAME}_handle_option (int optc)
       break;
 
     case OPTION_TOTAL_DATA:
+      if (chmem || stack_size || heap_size)
+	{
+	  einfo (_("%F%P: cannot specify \`--total-data' "
+		   "together with \`--chmem'/\`--stack'/\`--heap'"));
+	  break;
+	}
       value = strtoul (optarg, &end, 0);
       if (*end)
 	einfo (_("%F%P: invalid data segment size \`%s'\n"), optarg);
@@ -112,16 +141,16 @@ gld${EMULATION_NAME}_list_options (FILE *file)
 		   "Set maximum data segment size\n"));
 }
 
-extern void elks_set_total_and_minstack (bfd *, bfd_vma, bfd_vma, bfd_vma,
-						bfd_vma);
+extern void elks_set_heap_and_minstack (bfd *, bfd_vma, bfd_vma, bfd_vma,
+					bfd_vma);
 
 static void
 gld${EMULATION_NAME}_after_allocation (void)
 {
   bfd *abfd = link_info.output_bfd;
 
-  elks_set_total_and_minstack (abfd, stack_size, heap_size, chmem,
-				     total_data_size);
+  elks_set_heap_and_minstack (abfd, stack_size, heap_size, chmem,
+				    total_data_size);
 }
 EOF
 
