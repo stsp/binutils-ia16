@@ -149,8 +149,9 @@ gld${EMULATION_NAME}_after_allocation (void)
 {
   bfd *abfd = link_info.output_bfd;
 
-  elks_set_heap_and_minstack (abfd, stack_size, heap_size, chmem,
-				    total_data_size);
+  if (strstr (bfd_get_target (abfd), "elks"))
+    elks_set_heap_and_minstack (abfd, stack_size, heap_size, chmem,
+				total_data_size);
 }
 EOF
 
