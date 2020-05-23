@@ -136,6 +136,7 @@ elks_object_p (bfd *abfd)
 
   /* For now, only accept separate I/D executables for the 8086 with simple
      headers. */
+  n_read = bfd_bread (&hdr, (bfd_size_type) sizeof (hdr), abfd);
   hdr_len = hdr.a_hdrlen;
   if (n_read < ELKS_MIN_HDR_SIZE || hdr_len > n_read)
     {
@@ -517,7 +518,8 @@ elks_write_object_contents (bfd *abfd)
   a_heap = exec_hdr (abfd)->a_heap;
   a_minstack = exec_hdr (abfd)->a_minstack;
 
-  /* Do some sanity checking. */
+  /* Do some sanity checking.  But not too much.  Most checking can be
+     deferred to the linker scripts, which are easier to modify. */
   switch (a_version)
     {
     case 0:
@@ -529,15 +531,6 @@ elks_write_object_contents (bfd *abfd)
 	       /* xgettext:c_format */
 	    (_("%pB: total data segment size (%#lx) is too large"),
 	     abfd, (unsigned long) a_heap);
-	  bfd_set_error (bfd_error_bad_value);
-	  return false;
-	}
-      else if (a_heap != 0 && a_heap < a_data + a_bss)
-	{
-	  _bfd_error_handler
-	       /* xgettext:c_format */
-	    (_("%pB: total data segment size (%#lx) is too small (< %#lx)"),
-	     abfd, (unsigned long) a_heap, (unsigned long) (a_data + a_bss));
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
@@ -560,18 +553,6 @@ elks_write_object_contents (bfd *abfd)
 	       /* xgettext:c_format */
 	    (_("%pB: maximum heap size (%#lx) is too large"),
 	     abfd, (unsigned long) a_heap);
-	  bfd_set_error (bfd_error_bad_value);
-	  return false;
-	}
-
-      if (a_data + a_bss + a_heap + a_minstack > 0xffff)
-	{
-	  _bfd_error_handler
-	       /* xgettext:c_format */
-	    (_("%pB: total data segment size (%#lx + %#lx + %#lx + %#lx) "
-	       "is too large"), abfd,
-	     (unsigned long) a_data, (unsigned long) a_bss,
-	     (unsigned long) a_heap, (unsigned long) a_minstack);
 	  bfd_set_error (bfd_error_bad_value);
 	  return false;
 	}
