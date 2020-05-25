@@ -837,7 +837,7 @@ void
 elks_set_heap_and_minstack (bfd *abfd, bfd_vma stack_size, bfd_vma heap_size,
 			    bfd_vma chmem, bfd_vma total_data_size)
 {
-  if (stack_size || heap_size)
+  if (! chmem && ! total_data_size)
     {
       /* New-style header. */
       exec_hdr (abfd)->a_info = 1;
