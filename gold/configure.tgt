@@ -48,7 +48,7 @@ targ_big_endian=
 targ_extra_big_endian=
 targ_osabi=ELFOSABI_NONE
 case "$targ" in
-i?86-*)
+i?86-* | ia16-*)
   targ_obj=i386
   targ_machine=EM_386
   targ_size=32
