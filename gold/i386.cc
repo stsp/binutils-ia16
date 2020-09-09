@@ -1709,6 +1709,11 @@ Target_i386::Scan::get_reference_flags(unsigned int r_type)
     case elfcpp::R_386_32:
     case elfcpp::R_386_16:
     case elfcpp::R_386_8:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEG16:
+    case elfcpp::R_386_SUB16:
+    case elfcpp::R_386_SUB32:
+#endif
       return Symbol::ABSOLUTE_REF;
 
     case elfcpp::R_386_PC32:
@@ -1742,6 +1747,9 @@ Target_i386::Scan::get_reference_flags(unsigned int r_type)
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEGRELATIVE:
+#endif
     case elfcpp::R_386_TLS_TPOFF:
     case elfcpp::R_386_TLS_DTPMOD32:
     case elfcpp::R_386_TLS_DTPOFF32:
@@ -1836,6 +1844,28 @@ Target_i386::Scan::local(Symbol_table* symtab,
 				      reloc.get_r_offset());
 	}
       break;
+
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEG16:
+      // Cheat a bit -- always throw up a dynamic relocation
+      // even if not in PIC or PIE mode.
+      if (true)
+	{
+	  Reloc_section* rel_dyn = target->rel_dyn_section(layout);
+	  unsigned int r_sym = elfcpp::elf_r_sym<32>(reloc.get_r_info());
+	  rel_dyn->add_local_relative(object, r_sym, elfcpp::R_386_SEGRELATIVE,
+				      output_section, data_shndx,
+				      reloc.get_r_offset());
+	}
+      break;
+
+    case elfcpp::R_386_SUB16:
+    case elfcpp::R_386_SUB32:
+      if (parameters->options().output_is_position_independent())
+	object->error(_("reloc type %u not yet supported for "
+			"position-independent output"), r_type);
+      break;
+#endif
 
     case elfcpp::R_386_16:
     case elfcpp::R_386_8:
@@ -1942,6 +1972,9 @@ Target_i386::Scan::local(Symbol_table* symtab,
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEGRELATIVE:
+#endif
     case elfcpp::R_386_TLS_TPOFF:
     case elfcpp::R_386_TLS_DTPMOD32:
     case elfcpp::R_386_TLS_DTPOFF32:
@@ -2206,6 +2239,9 @@ Target_i386::Scan::global(Symbol_table* symtab,
     case elfcpp::R_386_32:
     case elfcpp::R_386_16:
     case elfcpp::R_386_8:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEG16:
+#endif
       {
 	// Make a PLT entry if necessary.
 	if (gsym->needs_plt_entry())
@@ -2253,6 +2289,16 @@ Target_i386::Scan::global(Symbol_table* symtab,
 					     output_section, object,
 					     data_shndx, reloc.get_r_offset());
 	      }
+#ifdef ENABLE_HPA_SEGELF
+	    else if (r_type == elfcpp::R_386_SEG16
+		     && gsym->can_use_relative_reloc(false))
+	      {
+		Reloc_section* rel_dyn = target->rel_dyn_section(layout);
+		rel_dyn->add_global_relative(gsym, elfcpp::R_386_SEGRELATIVE,
+					     output_section, object,
+					     data_shndx, reloc.get_r_offset());
+	      }
+#endif
 	    else
 	      {
 		Reloc_section* rel_dyn = target->rel_dyn_section(layout);
@@ -2262,6 +2308,15 @@ Target_i386::Scan::global(Symbol_table* symtab,
 	  }
       }
       break;
+
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SUB16:
+    case elfcpp::R_386_SUB32:
+      if (parameters->options().output_is_position_independent())
+	object->error(_("reloc type %u not yet supported for "
+			"position-independent output"), r_type);
+      break;
+#endif
 
     case elfcpp::R_386_PC32:
     case elfcpp::R_386_PC16:
@@ -2428,6 +2483,9 @@ Target_i386::Scan::global(Symbol_table* symtab,
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEGRELATIVE:
+#endif
     case elfcpp::R_386_TLS_TPOFF:
     case elfcpp::R_386_TLS_DTPMOD32:
     case elfcpp::R_386_TLS_DTPOFF32:
@@ -2871,6 +2929,35 @@ Target_i386::Relocate::relocate(const Relocate_info<32, false>* relinfo,
 	Relocate_functions<32, false>::pcrel16(view, object, psymval, address);
       break;
 
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEG16:
+      if (should_apply_static_reloc(gsym, r_type, false, output_section))
+	{
+	  elfcpp::Elf_types<32>::Elf_Addr value = psymval->value(object, 0);
+	  if ((value & 0xf) != 0)
+	    gold_error_at_location(relinfo, relnum, rel.get_r_offset(),
+				   _("unaligned R_386_SEG16 reloc value"));
+	  Relocate_functions<32, false>::rel16(view, value >> 4);
+	}
+      break;
+
+    case elfcpp::R_386_SUB16:
+      if (should_apply_static_reloc(gsym, r_type, false, output_section))
+	{
+	  elfcpp::Elf_types<32>::Elf_Addr value = psymval->value(object, 0);
+	  Relocate_functions<32, false>::rel16(view, -value);
+	}
+      break;
+
+    case elfcpp::R_386_SUB32:
+      if (should_apply_static_reloc(gsym, r_type, true, output_section))
+	{
+	  elfcpp::Elf_types<32>::Elf_Addr value = psymval->value(object, 0);
+	  Relocate_functions<32, false>::rel32(view, -value);
+	}
+      break;
+#endif
+
     case elfcpp::R_386_8:
       if (should_apply_static_reloc(gsym, r_type, false, output_section))
 	Relocate_functions<32, false>::rel8(view, object, psymval);
@@ -2976,6 +3063,9 @@ Target_i386::Relocate::relocate(const Relocate_info<32, false>* relinfo,
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEGRELATIVE:
+#endif
       // These are outstanding tls relocs, which are unexpected when
       // linking.
     case elfcpp::R_386_TLS_TPOFF:
@@ -3728,10 +3818,17 @@ Target_i386::Classify_reloc::get_size_for_reloc(
     case elfcpp::R_386_PLT32:
     case elfcpp::R_386_GOTOFF:
     case elfcpp::R_386_GOTPC:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SUB32:
+#endif
      return 4;
 
     case elfcpp::R_386_16:
     case elfcpp::R_386_PC16:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEG16:
+    case elfcpp::R_386_SUB16:
+#endif
       return 2;
 
     case elfcpp::R_386_8:
@@ -3745,6 +3842,9 @@ Target_i386::Classify_reloc::get_size_for_reloc(
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
+#ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEGRELATIVE:
+#endif
     case elfcpp::R_386_TLS_TPOFF:
     case elfcpp::R_386_TLS_DTPMOD32:
     case elfcpp::R_386_TLS_DTPOFF32:

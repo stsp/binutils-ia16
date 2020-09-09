@@ -16,6 +16,9 @@
 /* Define to 1 if you want to enable -z relro in ELF linker by default. */
 #undef DEFAULT_LD_Z_RELRO
 
+/* Define to support H. P. Anvin's proposed x86 segelf relocations */
+#undef ENABLE_HPA_SEGELF
+
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #undef ENABLE_NLS

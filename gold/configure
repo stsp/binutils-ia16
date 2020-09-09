@@ -631,6 +631,8 @@ HAVE_NO_USE_LINKER_PLUGIN_FALSE
 HAVE_NO_USE_LINKER_PLUGIN_TRUE
 HAVE_PUBNAMES_FALSE
 HAVE_PUBNAMES_TRUE
+HPA_SEGELF_FALSE
+HPA_SEGELF_TRUE
 THREADS_FALSE
 THREADS_TRUE
 PTHREAD_CFLAGS
@@ -851,6 +853,7 @@ with_gold_ldflags
 with_gold_ldadd
 with_system_zlib
 enable_threads
+enable_hpa_segelf
 enable_maintainer_mode
 '
       ac_precious_vars='build_alias
@@ -1503,6 +1506,7 @@ Optional Features:
   --enable-werror         treat compile warnings as errors
   --enable-build-warnings enable build-time compiler warnings
   --enable-threads[=ARG]  multi-threaded linking [ARG={auto,yes,no}]
+  --enable-hpa-segelf     support proposed x86 segmented addressing relocs
   --enable-maintainer-mode
                           enable make rules and dependencies not useful (and
                           sometimes confusing) to the casual installer
@@ -9575,6 +9579,32 @@ else
 fi
 
 
+# Check whether --enable-hpa-segelf was given.
+if test "${enable_hpa_segelf+set}" = set; then :
+  enableval=$enable_hpa_segelf; case "${enableval}" in
+  yes | "") hpa_segelf=yes ;;
+  no) hpa_segelf=no ;;
+  *) hpa_segelf=no ;;
+ esac
+else
+  hpa_segelf=no
+fi
+
+
+if test "$hpa_segelf" = "yes"; then
+
+$as_echo "#define ENABLE_HPA_SEGELF 1" >>confdefs.h
+
+fi
+ if test "$hpa_segelf" = "yes"; then
+  HPA_SEGELF_TRUE=
+  HPA_SEGELF_FALSE='#'
+else
+  HPA_SEGELF_TRUE='#'
+  HPA_SEGELF_FALSE=
+fi
+
+
 ac_fn_c_check_decl "$LINENO" "basename" "ac_cv_have_decl_basename" "$ac_includes_default"
 if test "x$ac_cv_have_decl_basename" = xyes; then :
   ac_have_decl=1
@@ -10587,6 +10617,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${THREADS_TRUE}" && test -z "${THREADS_FALSE}"; then
   as_fn_error $? "conditional \"THREADS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${HPA_SEGELF_TRUE}" && test -z "${HPA_SEGELF_FALSE}"; then
+  as_fn_error $? "conditional \"HPA_SEGELF\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${HAVE_PUBNAMES_TRUE}" && test -z "${HAVE_PUBNAMES_FALSE}"; then

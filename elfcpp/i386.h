@@ -87,7 +87,13 @@ enum
                             // to argument, returning TLS offset for symbol
   R_386_IRELATIVE = 42,     // Adjust indirectly by program base
   R_386_GOT32X = 43,        // 32 bit GOT entry, relaxable
-  // IA16 extension (old).
+  // IA-16 segmented addressing extensions proposed by H. Peter Anvin
+  // (https://git.zytor.com/users/hpa/segelf/abi.git/plain/segelf.txt).
+  R_386_SEG16 = 45,         // 16-bit IA-16 segment value
+  R_386_SUB16 = 46,         // Subtract 16-bit offset
+  R_386_SUB32 = 47,         // Subtract 32-bit offset
+  R_386_SEGRELATIVE = 48,   // Adjust by IA-16 segment base
+  // IA16 segmented addressing extensions (old).
   R_386_OZSEG16 = 80,       // High 16 bits, adds to exe relocation table
   R_386_OZRELSEG16 = 81,    // High 16 bits, do not add to exe relocation table
   // Used by Intel.

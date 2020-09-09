@@ -591,6 +591,21 @@ if test "$threads" = "yes"; then
 fi
 AM_CONDITIONAL(THREADS, test "$threads" = "yes")
 
+AC_ARG_ENABLE([hpa-segelf],
+[[  --enable-hpa-segelf     support proposed x86 segmented addressing relocs]],
+[case "${enableval}" in
+  yes | "") hpa_segelf=yes ;;
+  no) hpa_segelf=no ;;
+  *) hpa_segelf=no ;;
+ esac],
+[hpa_segelf=no])
+
+if test "$hpa_segelf" = "yes"; then
+  AC_DEFINE(ENABLE_HPA_SEGELF, 1,
+	    [Define to support H. P. Anvin's proposed x86 segelf relocations])
+fi
+AM_CONDITIONAL(HPA_SEGELF, test "$hpa_segelf" = "yes")
+
 dnl We have to check these in C, not C++, because autoconf generates
 dnl tests which have no type information, and current glibc provides
 dnl multiple declarations of functions like basename when compiling
