@@ -2239,9 +2239,6 @@ Target_i386::Scan::global(Symbol_table* symtab,
     case elfcpp::R_386_32:
     case elfcpp::R_386_16:
     case elfcpp::R_386_8:
-#ifdef ENABLE_HPA_SEGELF
-    case elfcpp::R_386_SEG16:
-#endif
       {
 	// Make a PLT entry if necessary.
 	if (gsym->needs_plt_entry())
@@ -2289,16 +2286,6 @@ Target_i386::Scan::global(Symbol_table* symtab,
 					     output_section, object,
 					     data_shndx, reloc.get_r_offset());
 	      }
-#ifdef ENABLE_HPA_SEGELF
-	    else if (r_type == elfcpp::R_386_SEG16
-		     && gsym->can_use_relative_reloc(false))
-	      {
-		Reloc_section* rel_dyn = target->rel_dyn_section(layout);
-		rel_dyn->add_global_relative(gsym, elfcpp::R_386_SEGRELATIVE,
-					     output_section, object,
-					     data_shndx, reloc.get_r_offset());
-	      }
-#endif
 	    else
 	      {
 		Reloc_section* rel_dyn = target->rel_dyn_section(layout);
@@ -2310,6 +2297,18 @@ Target_i386::Scan::global(Symbol_table* symtab,
       break;
 
 #ifdef ENABLE_HPA_SEGELF
+    case elfcpp::R_386_SEG16:
+      // See Target_i386::Scan::local( ) above.
+      if (true)
+	{
+	  Reloc_section* rel_dyn = target->rel_dyn_section(layout);
+	  unsigned int r_sym = elfcpp::elf_r_sym<32>(reloc.get_r_info());
+	  rel_dyn->add_local_relative(object, r_sym, elfcpp::R_386_SEGRELATIVE,
+				      output_section, data_shndx,
+				      reloc.get_r_offset());
+	}
+      break;
+
     case elfcpp::R_386_SUB16:
     case elfcpp::R_386_SUB32:
       if (parameters->options().output_is_position_independent())
