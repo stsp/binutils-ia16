@@ -157,7 +157,7 @@ static reloc_howto_type elf_howto_table[]=
   HOWTO(R_386_SEG16, 4, 1, 16, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SEG16",
 	true, 0xffff, 0xffff, false),
-  HOWTO(R_386_SUB16, 0, 1, 16, false, 0, complain_overflow_bitfield,
+  HOWTO(R_386_SUB16, 0, 1, 16, false, 0, complain_overflow_dont,
 	bfd_elf_generic_reloc, "R_386_SUB16",
 	true, 0xffff, 0xffff, false),
   HOWTO(R_386_SUB32, 0, 2, 32, false, 0, complain_overflow_bitfield,

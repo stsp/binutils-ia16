@@ -14364,6 +14364,8 @@ i386_elf_ensure_segelf_aux_seg (segT seg, char which)
   char *aux_name;
   size_t name_len;
   asection *aux_seg;
+  segT save_now_seg;
+  subsegT save_now_subseg;
 
   if (seg == absolute_section)
     return seg;
@@ -14390,17 +14392,13 @@ i386_elf_ensure_segelf_aux_seg (segT seg, char which)
   aux_name[name_len] = which;
   aux_name[name_len + 1] = 0;
 
-  aux_seg = bfd_make_section_with_flags (stdoutput, aux_name,
-					 SEC_READONLY | SEC_ALLOC);
-  if (! aux_seg)
-    {
-      aux_seg = bfd_get_section_by_name (stdoutput, aux_name);
-      if (! aux_seg)
-	{
-	  as_bad (_("cannot create segelf auxiliary section `%s'"), aux_name);
-	  return absolute_section;
-	}
-    }
+  aux_seg = subseg_get (aux_name, 0);
+  bfd_set_section_flags (aux_seg, SEC_READONLY | SEC_ALLOC);
+
+  save_now_seg = now_seg;
+  save_now_subseg = now_subseg;
+  subseg_set (aux_seg, 0);
+  subseg_set (save_now_seg, save_now_subseg);
 
   return aux_seg;
 }
