@@ -14356,7 +14356,7 @@ i386_elf_validate_fix_sub (fixS *fixp, segT seg)
     || fixp->fx_r_type == BFD_RELOC_GPREL16;
 }
 
-/* WHICH is '!' or '~'. */
+/* WHICH is '!' or '&'. */
 static segT
 i386_elf_ensure_segelf_aux_seg (segT seg, char which)
 {
@@ -14383,7 +14383,7 @@ i386_elf_ensure_segelf_aux_seg (segT seg, char which)
       char tail = name[name_len - 1];
       if (tail == which)
 	return seg;
-      else if (tail == '$' || tail == ('!' ^ '~' ^ which))
+      else if (tail == '$' || tail == ('!' ^ '&' ^ which))
 	--name_len;
     }
 
@@ -14403,7 +14403,7 @@ i386_elf_ensure_segelf_aux_seg (segT seg, char which)
   return aux_seg;
 }
 
-/* WHICH is '!' or '~'. */
+/* WHICH is '!' or '&'. */
 static symbolS *
 i386_elf_find_segelf_aux_symbol (symbolS *symbolP, char which)
 {
@@ -14423,7 +14423,7 @@ i386_elf_find_segelf_aux_symbol (symbolS *symbolP, char which)
       if (tail == which)
 	return symbolP;
 
-      if (tail == ('!' ^ '~' ^ which))
+      if (tail == ('!' ^ '&' ^ which))
 	--name_len;
       /*
        * Handle the special case where SYMBOLP is a section symbol.  We
@@ -14466,12 +14466,12 @@ i386_elf_symbol_new_hook (symbolS *symbolP)
 
   /*
    * For each symbol `foo' --- unless `foo' is _GLOBAL_OFFSET_TABLE_ ---
-   * create slots in the symbol table for a `foo!' and a `foo~'.  If `foo'
+   * create slots in the symbol table for a `foo!' and a `foo&'.  If `foo'
    * is already defined and known to be in a section `bar' or `bar$', then
-   * also create sections named `bar!' and `bar~'.
+   * also create sections named `bar!' and `bar&'.
    *
    * As a special case, if `foo' _is_ the section symbol `bar$', then name
-   * our new symbols `bar!' and `bar~' rather than `bar$!' and `bar$~'.
+   * our new symbols `bar!' and `bar&' rather than `bar$!' and `bar$&'.
    *
    * And, always create auxiliary sections for our current section.
    */
@@ -14486,17 +14486,17 @@ i386_elf_symbol_new_hook (symbolS *symbolP)
     i386_elf_ensure_segelf_aux_seg (now_seg, '!');
 
   /*
-   * FIXME: we do not really need `foo~' if `foo' will be externally
+   * FIXME: we do not really need `foo&' if `foo' will be externally
    * defined.
    */
-  auxP = i386_elf_find_segelf_aux_symbol (symbolP, '~');
+  auxP = i386_elf_find_segelf_aux_symbol (symbolP, '&');
 
   if (! auxP || auxP == symbolP)
     return;
 
-  i386_elf_ensure_segelf_aux_seg (seg, '~');
+  i386_elf_ensure_segelf_aux_seg (seg, '&');
   if (seg != now_seg)
-    i386_elf_ensure_segelf_aux_seg (now_seg, '~');
+    i386_elf_ensure_segelf_aux_seg (now_seg, '&');
 }
 
 int
@@ -14520,18 +14520,18 @@ i386_elf_frob_symbol (symbolS *symbolP)
     return 0;
 
   tail = name[name_len - 1];
-  if (tail != '!' && tail != '~')
+  if (tail != '!' && tail != '&')
     return 0;
 
   /*
-   * For each symbol `foo!' or `foo~' which is not already fleshed out, look
+   * For each symbol `foo!' or `foo&' which is not already fleshed out, look
    * up the symbol `foo'.  If `foo' has been referenced, then define `foo!'
-   * and `foo~' appropriately.
+   * and `foo&' appropriately.
    *
    * If there is no `foo', then look up `foo$', in case there is a section
    * symbol by that name.
    *
-   * Note that `foo!' and `foo~' need to be defined correctly
+   * Note that `foo!' and `foo&' need to be defined correctly
    *   * whether `foo' is local, global, or only defined outside
    *   * whether or not `foo' (or `foo$') is a section symbol
    *   * whether or not `foo' is defined through `.comm' or `.lcomm'
