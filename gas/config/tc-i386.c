@@ -14450,6 +14450,28 @@ i386_elf_find_segelf_aux_symbol (symbolS *symbolP, char which)
   ia16_aux_name[name_len + 1] = 0;
 
   baseP = symbol_find_or_make (ia16_aux_name);
+
+  /*
+   *	"jobs.s: Internal error in symbol_new at ../../binutils-ia16/gas/
+   *	 symbols.c:228."
+   * If this looks really really like a local symbol, then try to flesh it
+   * out immediately.
+   */
+  if (S_GET_SEGMENT (baseP) == undefined_section
+      && S_IS_LOCAL (symbolP) && bfd_is_local_label_name (stdoutput, name))
+    {
+      segT seg = S_GET_SEGMENT (symbolP);
+      if (seg != undefined_section)
+	{
+	  segT aux_seg = i386_elf_ensure_segelf_aux_seg (seg, which);
+	  S_SET_VALUE (baseP, 0);
+	  S_SET_SEGMENT (baseP, aux_seg);
+	  S_CLEAR_EXTERNAL (baseP);
+	  /* FIXME */
+	  symbol_mark_used_in_reloc (baseP);
+	}
+    }
+
   free (ia16_aux_name);
 
   return baseP;
@@ -14573,7 +14595,8 @@ i386_elf_frob_symbol (symbolS *symbolP)
       aux_seg = i386_elf_ensure_segelf_aux_seg (thang_seg, tail);
       S_SET_VALUE (symbolP, 0);
       S_SET_SEGMENT (symbolP, aux_seg);
-      if (S_IS_WEAK (thangP))
+      if (S_IS_WEAK (thangP)
+	  || (thang_seg == bfd_com_section_ptr && S_IS_EXTERNAL (thangP)))
 	S_SET_WEAK (symbolP);
       else if (S_IS_EXTERNAL (thangP))
 	S_SET_EXTERNAL (symbolP);
