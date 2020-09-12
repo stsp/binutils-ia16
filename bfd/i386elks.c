@@ -50,12 +50,12 @@ struct elks_aout_header
   uint8_t a_drsize[4];			/* Length of data relocation info. */
   uint8_t a_tbase[4];			/* Text relocation base. */
   uint8_t a_dbase[4];			/* Data relocation base. */
-  /* Not yet implemented in ELKS. */
-  uint8_t a_ftext[2];			/* Size of far text section in
+  /* Used for ELKS medium model support. */
+  uint8_t a_ftext[4];			/* Size of far text section in
 					   bytes. */
   uint8_t a_ftrsize[4];			/* Length of far text relocation
 					   info. */
-  uint8_t a_unused2[10];		/* Reserved; should be 0. */
+  uint8_t a_unused2[8];			/* Reserved; should be 0. */
 };
 
 /* Minimum ELKS a.out header size. */
@@ -177,7 +177,7 @@ elks_object_p (bfd *abfd)
   switch (hdr_len)
     {
     case sizeof (hdr):
-      a_ftext = H_GET_16 (abfd, hdr.a_ftext);
+      a_ftext = H_GET_32 (abfd, hdr.a_ftext);
       a_ftrsize = H_GET_32 (abfd, hdr.a_ftrsize);
       /* fall through */
 
@@ -591,7 +591,7 @@ elks_write_object_contents (bfd *abfd)
 	{
 	  a_ftext = exec_hdr (abfd)->ov_siz[0];
 	  a_ftrsize = exec_hdr (abfd)->ov_siz[1];
-	  H_PUT_16 (abfd, a_ftext, hdr.a_ftext);
+	  H_PUT_32 (abfd, a_ftext, hdr.a_ftext);
 	  H_PUT_32 (abfd, a_ftrsize, hdr.a_ftrsize);
 	}
     }
