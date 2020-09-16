@@ -285,7 +285,7 @@ class Once_initialize
 {
  public:
   Once_initialize()
-    : once_(PTHREAD_ONCE_INIT)
+    : once_((pthread_once_t) PTHREAD_ONCE_INIT)
   { }
 
   // Return a pointer to the pthread_once_t variable.
