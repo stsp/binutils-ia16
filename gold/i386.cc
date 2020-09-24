@@ -1709,7 +1709,7 @@ Target_i386::Scan::get_reference_flags(unsigned int r_type)
     case elfcpp::R_386_32:
     case elfcpp::R_386_16:
     case elfcpp::R_386_8:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEG16:
     case elfcpp::R_386_SUB16:
     case elfcpp::R_386_SUB32:
@@ -1747,7 +1747,7 @@ Target_i386::Scan::get_reference_flags(unsigned int r_type)
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEGRELATIVE:
 #endif
     case elfcpp::R_386_TLS_TPOFF:
@@ -1845,7 +1845,7 @@ Target_i386::Scan::local(Symbol_table* symtab,
 	}
       break;
 
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEG16:
       // Cheat a bit -- always throw up a dynamic relocation
       // even if not in PIC or PIE mode.
@@ -1972,7 +1972,7 @@ Target_i386::Scan::local(Symbol_table* symtab,
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEGRELATIVE:
 #endif
     case elfcpp::R_386_TLS_TPOFF:
@@ -2296,7 +2296,7 @@ Target_i386::Scan::global(Symbol_table* symtab,
       }
       break;
 
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEG16:
       // See Target_i386::Scan::local( ) above.
       if (true)
@@ -2482,7 +2482,7 @@ Target_i386::Scan::global(Symbol_table* symtab,
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEGRELATIVE:
 #endif
     case elfcpp::R_386_TLS_TPOFF:
@@ -2928,7 +2928,7 @@ Target_i386::Relocate::relocate(const Relocate_info<32, false>* relinfo,
 	Relocate_functions<32, false>::pcrel16(view, object, psymval, address);
       break;
 
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEG16:
       if (should_apply_static_reloc(gsym, r_type, false, output_section))
 	{
@@ -3062,7 +3062,7 @@ Target_i386::Relocate::relocate(const Relocate_info<32, false>* relinfo,
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEGRELATIVE:
 #endif
       // These are outstanding tls relocs, which are unexpected when
@@ -3817,14 +3817,14 @@ Target_i386::Classify_reloc::get_size_for_reloc(
     case elfcpp::R_386_PLT32:
     case elfcpp::R_386_GOTOFF:
     case elfcpp::R_386_GOTPC:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SUB32:
 #endif
      return 4;
 
     case elfcpp::R_386_16:
     case elfcpp::R_386_PC16:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEG16:
     case elfcpp::R_386_SUB16:
 #endif
@@ -3841,7 +3841,7 @@ Target_i386::Classify_reloc::get_size_for_reloc(
     case elfcpp::R_386_JUMP_SLOT:
     case elfcpp::R_386_RELATIVE:
     case elfcpp::R_386_IRELATIVE:
-#ifdef ENABLE_HPA_SEGELF
+#ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEGRELATIVE:
 #endif
     case elfcpp::R_386_TLS_TPOFF:

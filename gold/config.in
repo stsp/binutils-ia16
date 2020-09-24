@@ -16,9 +16,6 @@
 /* Define to 1 if you want to enable -z relro in ELF linker by default. */
 #undef DEFAULT_LD_Z_RELRO
 
-/* Define to support H. P. Anvin's proposed x86 segelf relocations */
-#undef ENABLE_HPA_SEGELF
-
 /* Define to 1 if translation of program messages to the user's native
    language is requested. */
 #undef ENABLE_NLS
@@ -28,6 +25,9 @@
 
 /* Define to do multi-threaded linking */
 #undef ENABLE_THREADS
+
+/* Define to support H. P. Anvin's proposed x86 segelf relocations */
+#undef ENABLE_X86_HPA_SEGELF
 
 /* Default big endian (true or false) */
 #undef GOLD_DEFAULT_BIG_ENDIAN
