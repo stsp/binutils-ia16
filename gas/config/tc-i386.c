@@ -13293,7 +13293,9 @@ struct option md_longopts[] =
   {"64", no_argument, NULL, OPTION_64},
 #endif
 #if defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)
+# ifdef ENABLE_X86_HPA_SEGELF
   {"32-segelf", no_argument, NULL, OPTION_32_SEGELF},
+# endif
   {"x32", no_argument, NULL, OPTION_X32},
   {"mshared", no_argument, NULL, OPTION_MSHARED},
   {"mx86-used-note", required_argument, NULL, OPTION_X86_USED_NOTE},
@@ -13433,9 +13435,11 @@ md_parse_option (int c, const char *arg)
 	as_fatal (_("32bit x86_64 is only supported for ELF"));
       break;
 
+# ifdef ENABLE_X86_HPA_SEGELF
     case OPTION_32_SEGELF:
       default_arch = "i386:segelf";
       break;
+# endif
 #endif
 
     case OPTION_32:
@@ -14155,8 +14159,10 @@ i386_target_format (void)
   else if (!strncmp (default_arch, "i386", 4))
     {
       update_code_flag (CODE_32BIT, 1);
+# ifdef ENABLE_X86_HPA_SEGELF
       if (default_arch[4] != 0)
 	x86_elf_abi = I386_SEGELF_ABI;
+# endif
     }
   else if (!strcmp (default_arch, "iamcu"))
     {
@@ -14356,6 +14362,7 @@ i386_elf_validate_fix_sub (fixS *fixp, segT seg)
     || fixp->fx_r_type == BFD_RELOC_GPREL16;
 }
 
+# ifdef ENABLE_X86_HPA_SEGELF
 /* WHICH is '!' or '&'. */
 static segT
 i386_elf_ensure_segelf_aux_seg (segT seg, char which)
@@ -14366,6 +14373,7 @@ i386_elf_ensure_segelf_aux_seg (segT seg, char which)
   asection *aux_seg;
   segT save_now_seg;
   subsegT save_now_subseg;
+  flagword aux_seg_flags;
 
   if (seg == absolute_section)
     return seg;
@@ -14393,7 +14401,11 @@ i386_elf_ensure_segelf_aux_seg (segT seg, char which)
   aux_name[name_len + 1] = 0;
 
   aux_seg = subseg_get (aux_name, 0);
-  bfd_set_section_flags (aux_seg, SEC_READONLY | SEC_ALLOC);
+  aux_seg_flags = SEC_READONLY;
+  aux_seg_flags |= bfd_section_flags (seg)
+		   & (SEC_ALLOC | SEC_LOAD | SEC_CODE | SEC_DATA | SEC_ROM
+		      | SEC_LINK_ONCE | SEC_LINK_DUPLICATES);
+  bfd_set_section_flags (aux_seg, aux_seg_flags);
 
   save_now_seg = now_seg;
   save_now_subseg = now_subseg;
@@ -14580,9 +14592,10 @@ i386_elf_frob_symbol (symbolS *symbolP)
   thang_seg = S_GET_SEGMENT (thangP);
   if (! SEG_NORMAL (thang_seg))
     {
-      if (thang_seg == undefined_section
-	  || S_IS_EXTERNAL (thangP) || S_IS_WEAK (thangP))
-        S_SET_WEAK (symbolP);
+      if (S_IS_EXTERNAL (thangP))
+	S_SET_EXTERNAL (symbolP);
+      else if (S_IS_WEAK (thangP))
+	S_SET_WEAK (symbolP);
       else
 	{
 	  S_SET_VALUE (symbolP, 0);
@@ -14605,6 +14618,7 @@ i386_elf_frob_symbol (symbolS *symbolP)
     }
   return 0;
 }
+# endif
 #endif
 
 /* Remember constant directive.  */
@@ -14963,7 +14977,8 @@ tc_gen_reloc (asection *section ATTRIBUTE_UNUSED, fixS *fixp)
       gas_assert (rel->howto != NULL);
     }
 
-#if defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)
+#if (defined (OBJ_ELF) || defined (OBJ_MAYBE_ELF)) \
+    && ENABLE_X86_HPA_SEGELF
   if (x86_elf_abi == I386_SEGELF_ABI)
     {
       switch (code)

@@ -674,6 +674,8 @@ WARN_WRITE_STRINGS
 NO_WERROR
 WARN_CFLAGS_FOR_BUILD
 WARN_CFLAGS
+X86_HPA_SEGELF_FALSE
+X86_HPA_SEGELF_TRUE
 do_compare
 LARGEFILE_CPPFLAGS
 OTOOL64
@@ -770,6 +772,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -810,6 +813,7 @@ enable_elf_stt_common
 enable_generate_build_notes
 enable_mips_fix_loongson3_llsc
 enable_x86_used_note
+enable_x86_hpa_segelf
 enable_default_riscv_attribute
 enable_werror
 enable_build_warnings
@@ -867,6 +871,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1119,6 +1124,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1256,7 +1270,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1409,6 +1423,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1475,6 +1490,7 @@ Optional Features:
   --enable-mips-fix-loongson3-llsc
                           enable MIPS fix Loongson3 LLSC errata
   --enable-x86-used-note  generate GNU x86 used ISA and feature properties
+  --enable-x86-hpa-segelf support Anvin's x86 segmented addressing relocs
   --enable-default-riscv-attribute
                           generate RISC-V arch attribute by default
   --enable-werror         treat compile warnings as errors
@@ -11236,7 +11252,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11282,7 +11298,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11306,7 +11322,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11351,7 +11367,7 @@ else
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11375,7 +11391,7 @@ rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
     We can't simply define LARGE_OFF_T to be 9223372036854775807,
     since some C++ compilers masquerading as C compilers
     incorrectly reject 9223372036854775807.  */
-#define LARGE_OFF_T (((off_t) 1 << 62) - 1 + ((off_t) 1 << 62))
+#define LARGE_OFF_T ((((off_t) 1 << 31) << 31) - 1 + (((off_t) 1 << 31) << 31))
   int off_t_is_large[(LARGE_OFF_T % 2147483629 == 721
 		       && LARGE_OFF_T % 2147483647 == 1)
 		      ? 1 : -1];
@@ -11540,6 +11556,32 @@ if test "${enable_x86_used_note+set}" = set; then :
   no)   ac_default_generate_x86_used_note=0 ;;
 esac
 fi
+
+# Check whether --enable-x86-hpa-segelf was given.
+if test "${enable_x86_hpa_segelf+set}" = set; then :
+  enableval=$enable_x86_hpa_segelf; case "${enableval}" in
+  yes | "") x86_hpa_segelf=yes ;;
+  no) x86_hpa_segelf=no ;;
+  *) x86_hpa_segelf=no ;;
+ esac
+else
+  x86_hpa_segelf=no
+fi
+
+
+if test "$x86_hpa_segelf" = "yes"; then
+
+$as_echo "#define ENABLE_X86_HPA_SEGELF 1" >>confdefs.h
+
+fi
+ if test "$x86_hpa_segelf" = "yes"; then
+  X86_HPA_SEGELF_TRUE=
+  X86_HPA_SEGELF_FALSE='#'
+else
+  X86_HPA_SEGELF_TRUE='#'
+  X86_HPA_SEGELF_FALSE=
+fi
+
 
 # Decide if the RISC-V ELF assembler should default to generating attribute.
 ac_default_generate_riscv_attr=unset
@@ -14203,6 +14245,10 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${am__fastdepCC_TRUE}" && test -z "${am__fastdepCC_FALSE}"; then
   as_fn_error $? "conditional \"am__fastdepCC\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${X86_HPA_SEGELF_TRUE}" && test -z "${X86_HPA_SEGELF_FALSE}"; then
+  as_fn_error $? "conditional \"X86_HPA_SEGELF\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 

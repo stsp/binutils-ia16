@@ -135,6 +135,21 @@ AC_ARG_ENABLE(x86-used-note,
   no)   ac_default_generate_x86_used_note=0 ;;
 esac])dnl
 
+AC_ARG_ENABLE([x86-hpa-segelf],
+[[  --enable-x86-hpa-segelf support Anvin's x86 segmented addressing relocs]],
+[case "${enableval}" in
+  yes | "") x86_hpa_segelf=yes ;;
+  no) x86_hpa_segelf=no ;;
+  *) x86_hpa_segelf=no ;;
+ esac],
+[x86_hpa_segelf=no])
+
+if test "$x86_hpa_segelf" = "yes"; then
+  AC_DEFINE(ENABLE_X86_HPA_SEGELF, 1,
+	    [Define to support H. P. Anvin's proposed x86 segelf relocations])
+fi
+AM_CONDITIONAL(X86_HPA_SEGELF, test "$x86_hpa_segelf" = "yes")
+
 # Decide if the RISC-V ELF assembler should default to generating attribute.
 ac_default_generate_riscv_attr=unset
 # Provide a configuration option to override the default.
