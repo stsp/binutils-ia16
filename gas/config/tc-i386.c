@@ -14592,9 +14592,9 @@ i386_elf_frob_symbol (symbolS *symbolP)
   thang_seg = S_GET_SEGMENT (thangP);
   if (! SEG_NORMAL (thang_seg))
     {
-      if (S_IS_EXTERNAL (thangP))
-	S_SET_EXTERNAL (symbolP);
-      else if (S_IS_WEAK (thangP))
+      if (thang_seg == undefined_section)
+	;
+      else if (S_IS_EXTERNAL (thangP) || S_IS_WEAK (thangP))
 	S_SET_WEAK (symbolP);
       else
 	{
