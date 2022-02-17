@@ -2440,6 +2440,14 @@ elf_i386_relocate_section (bfd *output_bfd,
 				   h, sec, relocation,
 				   unresolved_reloc, warned, ignored);
 	  st_size = h->size;
+
+	  if (r_type == R_386_PC16 && !ignore_reloc_overflow
+	      && h->root.type == bfd_link_hash_undefweak)
+	    {
+	      howto_modified = *howto;
+	      howto_modified.complain_on_overflow = complain_overflow_dont;
+	      howto = &howto_modified;
+	    }
 	}
 
       if (sec != NULL && discarded_section (sec))
