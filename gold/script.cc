@@ -2728,12 +2728,25 @@ script_add_library(void* closurev, const char* name, size_t length)
   if (name_string[0] != 'l')
     gold_error(_("library name must be prefixed with -l"));
 
-  Input_file_argument file(name_string.c_str() + 1,
-			   Input_file_argument::INPUT_FILE_TYPE_LIBRARY,
-			   "", false,
-			   closure->position_dependent_options());
-  Input_argument& arg = closure->inputs()->add_file(file);
-  arg.set_script_info(closure->script_info());
+  if (length > 1 && name_string[1] == ':')
+    {
+      Input_file_argument file(name_string.c_str() + 2,
+			       Input_file_argument::
+				 INPUT_FILE_TYPE_SEARCHED_FILE,
+			       "", false,
+			       closure->position_dependent_options());
+      Input_argument& arg = closure->inputs()->add_file(file);
+      arg.set_script_info(closure->script_info());
+    }
+  else
+    {
+      Input_file_argument file(name_string.c_str() + 1,
+			       Input_file_argument::INPUT_FILE_TYPE_LIBRARY,
+			       "", false,
+			       closure->position_dependent_options());
+      Input_argument& arg = closure->inputs()->add_file(file);
+      arg.set_script_info(closure->script_info());
+    }
 }
 
 // Called by the bison parser to start a group.  If we are already in
