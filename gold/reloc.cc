@@ -936,7 +936,8 @@ Sized_relobj_file<size, big_endian>::relocate_section_range(
 	}
       Address output_offset = out_offsets[index];
 
-      gold_assert((*pviews)[index].view != NULL);
+      gold_assert((*pviews)[index].view_size == 0
+		  || (*pviews)[index].view != NULL);
       if (parameters->options().relocatable())
 	gold_assert((*pviews)[i].view != NULL);
 

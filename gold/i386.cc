@@ -2864,6 +2864,14 @@ Target_i386::Relocate::relocate(const Relocate_info<32, false>* relinfo,
 	}
     }
 
+#ifdef ENABLE_X86_HPA_SEGELF
+  // Hack to allow R_386_NONE relocations in zero-size input sections.
+  // This is potentially useful even with non-segelf code, but for now, only
+  // enable this hack if segelf support is enabled.  -- tkchia
+  if (r_type == elfcpp::R_386_NONE)
+    return false;
+#endif
+
   if (view == NULL)
     return true;
 
