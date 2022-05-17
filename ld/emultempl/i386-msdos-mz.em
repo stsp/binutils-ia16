@@ -35,6 +35,15 @@ fragment <<EOF
 
 static struct elf_linker_x86_params params;
 
+/* This is a convenient point to tell BFD about target specific flags.
+   After the output has been created, but before inputs are read.  */
+
+static void
+elf_x86_create_output_section_statements (void)
+{
+  _bfd_elf_linker_x86_set_options (&link_info, &params);
+}
+
 static asection **mz_reloc_sections = NULL;
 static bfd_vma num_mz_reloc_sections = 0;
 
@@ -267,5 +276,6 @@ cont:
 
 EOF
 
+LDEMUL_CREATE_OUTPUT_SECTION_STATEMENTS=elf_x86_create_output_section_statements
 LDEMUL_AFTER_OPEN=i386_mz_after_open
 LDEMUL_FINISH=gld${EMULATION_NAME}_finish
