@@ -154,16 +154,16 @@ static reloc_howto_type elf_howto_table[]=
 #define R_386_ext2 (R_386_GOT32X + 1 - R_386_tls_offset)
 #define R_386_seg16_offset (R_386_SEG16 - R_386_ext2)
 
-  HOWTO(R_386_SEG16, 4, 1, 16, false, 0, complain_overflow_bitfield,
+  HOWTO(R_386_SEG16, 4, 2, 16, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SEG16",
 	true, 0xffff, 0xffff, false),
-  HOWTO(R_386_SUB16, 0, 1, 16, false, 0, complain_overflow_dont,
+  HOWTO(R_386_SUB16, 0, 2, 16, false, 0, complain_overflow_dont,
 	bfd_elf_generic_reloc, "R_386_SUB16",
 	true, 0xffff, 0xffff, false),
-  HOWTO(R_386_SUB32, 0, 2, 32, false, 0, complain_overflow_bitfield,
+  HOWTO(R_386_SUB32, 0, 4, 32, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SUB32",
 	true, 0xffffffff, 0xffffffff, false),
-  HOWTO(R_386_SEGRELATIVE, 4, 1, 16, false, 0, complain_overflow_bitfield,
+  HOWTO(R_386_SEGRELATIVE, 4, 2, 16, false, 0, complain_overflow_bitfield,
 	bfd_elf_generic_reloc, "R_386_SEGRELATIVE",
 	true, 0xffff, 0xffff, false),
 
@@ -172,10 +172,10 @@ static reloc_howto_type elf_howto_table[]=
 #define R_386_ia16_offset (R_386_OZSEG16 - R_386_ext3)
 
   /* IA16.  */
-  HOWTO(R_386_OZSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
+  HOWTO(R_386_OZSEG16, 0, 2, 16, false, 0, complain_overflow_dont,
 	bfd_i386_elf_segment16_reloc, "R_386_OZSEG16",
 	true, 0xffff, 0xffff, false),
-  HOWTO(R_386_OZRELSEG16, 0, 1, 16, false, 0, complain_overflow_dont,
+  HOWTO(R_386_OZRELSEG16, 0, 2, 16, false, 0, complain_overflow_dont,
 	bfd_i386_elf_relseg16_reloc, "R_386_OZRELSEG16",
 	true, 0xffff, 0xffff, false),
 
