@@ -2299,7 +2299,7 @@ Target_i386::Scan::global(Symbol_table* symtab,
 #ifdef ENABLE_X86_HPA_SEGELF
     case elfcpp::R_386_SEG16:
       // See Target_i386::Scan::local( ) above.
-      if (true)
+      if (gsym->can_use_relative_reloc(false))
 	{
 	  Reloc_section* rel_dyn = target->rel_dyn_section(layout);
 	  unsigned int r_sym = elfcpp::elf_r_sym<32>(reloc.get_r_info());
