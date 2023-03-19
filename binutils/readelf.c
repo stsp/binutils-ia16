@@ -15419,7 +15419,12 @@ dump_section_as_strings (Elf_Internal_Shdr * section, Filedata * filedata)
 		      /* Try to find out how many bytes made up the character that was
 			 just printed.  Advance the symbol pointer past the bytes that
 			 were displayed.  */
+# ifndef __DJGPP__
 		      n = mbrtowc (& w, (char *)(data - 1), MB_CUR_MAX, & state);
+# else
+		      /* tkchia 20230319 */
+		      n = mbtowc (& w, (char *)(data - 1), MB_CUR_MAX);
+# endif
 #else
 		      n = 1;
 #endif
