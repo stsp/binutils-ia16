@@ -14442,7 +14442,8 @@ i386_elf_find_segelf_aux_symbol (symbolS *symbolP, char which)
        * cannot rely on section_symbol (.) to work correctly, since GAS
        * might still be constructing that very symbol at this point.
        */
-      else if (! S_IS_EXTERNAL (symbolP) && S_GET_VALUE (symbolP) == 0)
+      else if (! S_IS_EXTERNAL (symbolP)
+	       && symbol_get_frag (symbolP) == &zero_address_frag)
 	{
 	  segT seg = S_GET_SEGMENT (symbolP);
 	  if (seg != undefined_section
