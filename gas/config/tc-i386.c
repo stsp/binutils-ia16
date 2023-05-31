@@ -14474,7 +14474,8 @@ i386_elf_find_segelf_aux_symbol (symbolS *symbolP, char which)
       && S_IS_LOCAL (symbolP) && bfd_is_local_label_name (stdoutput, name))
     {
       segT seg = S_GET_SEGMENT (symbolP);
-      if (seg != undefined_section)
+      if (seg != undefined_section && seg != reg_section
+	  && seg != expr_section)
 	{
 	  segT aux_seg = i386_elf_ensure_segelf_aux_seg (seg, which);
 	  S_SET_VALUE (baseP, 0);
