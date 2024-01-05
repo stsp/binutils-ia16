@@ -1,0 +1,23 @@
+Source: binutils-ia16-elf
+Section: devel
+Priority: optional
+Maintainer: TK Chia <tkchia@gmx.com>
+Build-Depends: debhelper (>=9), autotools-dev, texinfo, bison, flex, gettext,
+ dejagnu, quilt, python3:any, file, lsb-release, zlib1g-dev
+Standards-Version: 3.9.6
+Homepage: https://gitlab.com/tkchia/binutils-ia16
+Vcs-Git: https://gitlab.com/tkchia/binutils-ia16.git
+
+Package: binutils-ia16-elf
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Suggests: gcc-ia16-elf, libnewlib-ia16-elf
+Description: GNU binary utilities, for ia16-elf target
+ Unofficial port of GNU binutils to the ia16-elf target --- for 16-bit Intel
+ x86 CPUs, using ELF objects internally, and producing MS-DOS executables ---
+ by Andrew Jenner.
+ .
+ This is based on the sources of Jenner et al.'s toolchain for IA-16 (see
+ https://sourcery.mentor.com/GNUToolchain/subscription57091?cmpid=11885 and
+ https://github.com/crtc-demos/binutils-ia16).
+
