@@ -10,7 +10,7 @@ Vcs-Git: https://gitlab.com/tkchia/binutils-ia16.git
 
 Package: binutils-ia16-elf
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: ${shlibs:Depends}, ${misc:Depends}, causeway-dosx
 Suggests: gcc-ia16-elf, libnewlib-ia16-elf
 Description: GNU binary utilities, for ia16-elf target
  Unofficial port of GNU binutils to the ia16-elf target --- for 16-bit Intel
